@@ -1,0 +1,74 @@
+{% extends 'inventory/base.html' %}
+{% load static %}
+
+{% block title %}{% if product %}Edit{% else %}Add{% endif %} Product{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1>{% if product %}Edit{% else %}Add{% endif %} Product</h1>
+    <a href="{% url 'product_list' %}" class="btn btn-secondary">
+        <i class="fas fa-arrow-left"></i> Back to List
+    </a>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <form method="post">
+            {% csrf_token %}
+            <div class="mb-3">
+                <label for="name" class="form-label">Product Name</label>
+                <input type="text" class="form-control" id="name" name="name" value="{{ product.name|default:'' }}" required>
+            </div>
+            
+            <div class="mb-3">
+                <label for="category" class="form-label">Category</label>
+                <select class="form-select" id="category" name="category" required>
+                    <option value="">Select a category</option>
+                    {% for category in categories %}
+                    <option value="{{ category.id }}" {% if product.category.id == category.id %}selected{% endif %}>
+                        {{ category.name }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <div class="mb-3">
+                <label for="price" class="form-label">Price</label>
+                <div class="input-group">
+                    <span class="input-group-text">$</span>
+                    <input type="text" class="form-control" id="price" name="price" value="{{ product.price|default:'' }}" 
+                           onchange="formatCurrency(this)" required>
+                </div>
+            </div>
+            
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <label for="quantity" class="form-label">Initial Quantity</label>
+                    <input type="number" class="form-control" id="quantity" name="quantity" value="{{ product.quantity|default:'0' }}" 
+                           {% if product %}disabled{% endif %} min="0" onchange="validateQuantity(this)">
+                    {% if product %}
+                    <small class="text-muted">Use stock movements to adjust quantity</small>
+                    {% endif %}
+                </div>
+                
+                <div class="col-md-6 mb-3">
+                    <label for="minimum_stock" class="form-label">Minimum Stock Level</label>
+                    <input type="number" class="form-control" id="minimum_stock" name="minimum_stock" 
+                           value="{{ product.minimum_stock|default:'10' }}" min="0" onchange="validateQuantity(this)" required>
+                </div>
+            </div>
+            
+            <div class="mb-3">
+                <label for="description" class="form-label">Description</label>
+                <textarea class="form-control" id="description" name="description" rows="3">{{ product.description|default:'' }}</textarea>
+            </div>
+            
+            <div class="d-grid">
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-save"></i> {% if product %}Update{% else %}Create{% endif %} Product
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

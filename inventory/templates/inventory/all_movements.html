@@ -1,0 +1,231 @@
+{% extends 'inventory/base.html' %}
+{% load static %}
+
+{% block title %}Stock Movements{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1>Stock Movements</h1>
+    <a href="{% url 'dashboard' %}" class="btn btn-secondary">
+        <i class="fas fa-arrow-left"></i> Back to Dashboard
+    </a>
+</div>
+
+<!-- Filter options -->
+<div class="card mb-4">
+    <div class="card-header">
+        <h5 class="mb-0">Filter Options</h5>
+    </div>
+    <div class="card-body">
+        <form method="get" class="row g-3">
+            <div class="col-md-4">
+                <label for="product" class="form-label">Product</label>
+                <select class="form-select" id="product" name="product">
+                    <option value="">All Products</option>
+                    {% for product in products %}
+                    <option value="{{ product.id }}" {% if product_filter == product.id|stringformat:"i" %}selected{% endif %}>
+                        {{ product.name }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <div class="col-md-3">
+                <label for="category" class="form-label">Category</label>
+                <select class="form-select" id="category" name="category">
+                    <option value="">All Categories</option>
+                    {% for category in categories %}
+                    <option value="{{ category.id }}" {% if category_filter == category.id|stringformat:"i" %}selected{% endif %}>
+                        {{ category.name }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <div class="col-md-2">
+                <label for="type" class="form-label">Movement Type</label>
+                <select class="form-select" id="type" name="type">
+                    <option value="">All Types</option>
+                    <option value="in" {% if type_filter == 'in' %}selected{% endif %}>Stock In</option>
+                    <option value="out" {% if type_filter == 'out' %}selected{% endif %}>Stock Out</option>
+                </select>
+            </div>
+            
+            <div class="col-md-3">
+                <label for="date_from" class="form-label">Date From</label>
+                <input type="date" class="form-control" id="date_from" name="date_from" value="{{ date_from|date:'Y-m-d' }}">
+            </div>
+            
+            <div class="col-md-3">
+                <label for="date_to" class="form-label">Date To</label>
+                <input type="date" class="form-control" id="date_to" name="date_to" value="{{ date_to|date:'Y-m-d' }}">
+            </div>
+            
+            <div class="col-md-6">
+                <div class="d-flex" style="gap: 10px; margin-top: 32px;">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-filter"></i> Apply Filters
+                    </button>
+                    <a href="{% url 'all_movements' %}" class="btn btn-secondary">
+                        <i class="fas fa-undo"></i> Clear Filters
+                    </a>
+                    <button type="button" class="btn btn-success" id="exportBtn">
+                        <i class="fas fa-file-csv"></i> Export Filtered Results
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Movements Table -->
+<div class="card">
+    <div class="card-header">
+        <div class="d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">Stock Movement History</h5>
+            <span class="badge bg-info">{{ movements.paginator.count }} movement{{ movements.paginator.count|pluralize }}</span>
+        </div>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>Date & Time</th>
+                        <th>Product</th>
+                        <th>Category</th>
+                        <th>Type</th>
+                        <th>Quantity</th>
+                        <th>User</th>
+                        <th>Note</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for movement in movements %}
+                    <tr>
+                        <td>{{ movement.created_at|date:"M d, Y H:i" }}</td>
+                        <td>
+                            <a href="{% url 'product_detail' movement.product.id %}">
+                                {{ movement.product.name }}
+                            </a>
+                        </td>
+                        <td>{{ movement.product.category.name }}</td>
+                        <td>
+                            {% if movement.movement_type == 'in' %}
+                            <span class="badge bg-success">Stock In</span>
+                            {% else %}
+                            <span class="badge bg-danger">Stock Out</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ movement.quantity }}</td>
+                        <td>{{ movement.created_by.username }}</td>
+                        <td>{{ movement.note|default:"-" }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="7" class="text-center">No movements found with the selected filters</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        
+        <!-- Pagination -->
+        {% if movements.has_other_pages %}
+        <nav aria-label="Page navigation" class="mt-4">
+            <ul class="pagination justify-content-center">
+                {% if movements.has_previous %}
+                <li class="page-item">
+                    <a class="page-link" href="?page=1{% if product_filter %}&product={{ product_filter }}{% endif %}{% if category_filter %}&category={{ category_filter }}{% endif %}{% if type_filter %}&type={{ type_filter }}{% endif %}{% if date_from %}&date_from={{ date_from|date:'Y-m-d' }}{% endif %}{% if date_to %}&date_to={{ date_to|date:'Y-m-d' }}{% endif %}" aria-label="First">
+                        <span aria-hidden="true">&laquo;&laquo;</span>
+                    </a>
+                </li>
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ movements.previous_page_number }}{% if product_filter %}&product={{ product_filter }}{% endif %}{% if category_filter %}&category={{ category_filter }}{% endif %}{% if type_filter %}&type={{ type_filter }}{% endif %}{% if date_from %}&date_from={{ date_from|date:'Y-m-d' }}{% endif %}{% if date_to %}&date_to={{ date_to|date:'Y-m-d' }}{% endif %}" aria-label="Previous">
+                        <span aria-hidden="true">&laquo;</span>
+                    </a>
+                </li>
+                {% else %}
+                <li class="page-item disabled">
+                    <a class="page-link" href="#" tabindex="-1" aria-disabled="true">&laquo;&laquo;</a>
+                </li>
+                <li class="page-item disabled">
+                    <a class="page-link" href="#" tabindex="-1" aria-disabled="true">&laquo;</a>
+                </li>
+                {% endif %}
+                
+                {% for num in movements.paginator.page_range %}
+                    {% if movements.number == num %}
+                    <li class="page-item active"><a class="page-link" href="#">{{ num }}</a></li>
+                    {% elif num > movements.number|add:'-3' and num < movements.number|add:'3' %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ num }}{% if product_filter %}&product={{ product_filter }}{% endif %}{% if category_filter %}&category={{ category_filter }}{% endif %}{% if type_filter %}&type={{ type_filter }}{% endif %}{% if date_from %}&date_from={{ date_from|date:'Y-m-d' }}{% endif %}{% if date_to %}&date_to={{ date_to|date:'Y-m-d' }}{% endif %}">{{ num }}</a>
+                    </li>
+                    {% endif %}
+                {% endfor %}
+                
+                {% if movements.has_next %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ movements.next_page_number }}{% if product_filter %}&product={{ product_filter }}{% endif %}{% if category_filter %}&category={{ category_filter }}{% endif %}{% if type_filter %}&type={{ type_filter }}{% endif %}{% if date_from %}&date_from={{ date_from|date:'Y-m-d' }}{% endif %}{% if date_to %}&date_to={{ date_to|date:'Y-m-d' }}{% endif %}" aria-label="Next">
+                        <span aria-hidden="true">&raquo;</span>
+                    </a>
+                </li>
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ movements.paginator.num_pages }}{% if product_filter %}&product={{ product_filter }}{% endif %}{% if category_filter %}&category={{ category_filter }}{% endif %}{% if type_filter %}&type={{ type_filter }}{% endif %}{% if date_from %}&date_from={{ date_from|date:'Y-m-d' }}{% endif %}{% if date_to %}&date_to={{ date_to|date:'Y-m-d' }}{% endif %}" aria-label="Last">
+                        <span aria-hidden="true">&raquo;&raquo;</span>
+                    </a>
+                </li>
+                {% else %}
+                <li class="page-item disabled">
+                    <a class="page-link" href="#" tabindex="-1" aria-disabled="true">&raquo;</a>
+                </li>
+                <li class="page-item disabled">
+                    <a class="page-link" href="#" tabindex="-1" aria-disabled="true">&raquo;&raquo;</a>
+                </li>
+                {% endif %}
+            </ul>
+        </nav>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Handle export button
+        document.getElementById('exportBtn').addEventListener('click', function() {
+            // Create CSV export URL with all current filters
+            let exportUrl = '{% url "export_movements_csv" %}?';
+            
+            const productFilter = document.getElementById('product').value;
+            if (productFilter) {
+                exportUrl += `product=${productFilter}&`;
+            }
+            
+            const categoryFilter = document.getElementById('category').value;
+            if (categoryFilter) {
+                exportUrl += `category=${categoryFilter}&`;
+            }
+            
+            const typeFilter = document.getElementById('type').value;
+            if (typeFilter) {
+                exportUrl += `type=${typeFilter}&`;
+            }
+            
+            const dateFrom = document.getElementById('date_from').value;
+            if (dateFrom) {
+                exportUrl += `date_from=${dateFrom}&`;
+            }
+            
+            const dateTo = document.getElementById('date_to').value;
+            if (dateTo) {
+                exportUrl += `date_to=${dateTo}&`;
+            }
+            
+            // Navigate to export URL
+            window.location.href = exportUrl;
+        });
+    });
+</script>
+{% endblock %}

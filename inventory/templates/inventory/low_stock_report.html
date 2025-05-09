@@ -1,0 +1,621 @@
+{% extends 'inventory/base.html' %}
+
+{% comment %} {% extends 'inventory/base.html' %}
+{% load static %}
+
+{% block title %}Low Stock Report{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1>Low Stock Report</h1>
+    <div>
+        <a href="{% url 'export_products_csv' %}" class="btn btn-success">
+            <i class="fas fa-file-csv"></i> Export CSV
+        </a>
+        <a href="{% url 'dashboard' %}" class="btn btn-secondary">
+            <i class="fas fa-arrow-left"></i> Back to Dashboard
+        </a>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>Product</th>
+                        <th>Category</th>
+                        <th>Current Stock</th>
+                        <th>Minimum Stock</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for product in products %}
+                    <tr>
+                        <td>{{ product.name }}</td>
+                        <td>{{ product.category.name }}</td>
+                        <td>{{ product.quantity }}</td>
+                        <td>{{ product.minimum_stock }}</td>
+                        <td>
+                            {% if product.quantity == 0 %}
+                            <span class="badge bg-danger">Out of Stock</span>
+                            {% else %}
+                            <span class="badge bg-warning">Low Stock</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <a href="{% url 'product_detail' product.pk %}" class="btn btn-sm btn-info">
+                                <i class="fas fa-eye"></i>
+                            </a>
+                            <a href="{% url 'add_stock' product.pk %}" class="btn btn-sm btn-success">
+                                <i class="fas fa-plus"></i>
+                            </a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="6" class="text-center">No low stock products found</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %} {% endcomment %}
+
+{% comment %} 
+{% extends 'inventory/base.html' %}
+{% load static %}
+{% block title %}Low Stock Report{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1>Low Stock Report</h1>
+    <div>
+        <a href="{% url 'export_products_csv' %}" class="btn btn-success">
+            <i class="fas fa-file-csv"></i> Export CSV
+        </a>
+        <a href="{% url 'dashboard' %}" class="btn btn-secondary">
+            <i class="fas fa-arrow-left"></i> Back to Dashboard
+        </a>
+    </div>
+</div>
+
+<div class="card mb-4">
+    <div class="card-header bg-warning text-dark">
+        <h5 class="mb-0">
+            <i class="fas fa-exclamation-triangle"></i> Low Stock Items: {{ count }}
+        </h5>
+    </div>
+    <div class="card-body">
+        {% if count > 0 %}
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>Product</th>
+                        <th>Category</th>
+                        <th>Current Stock</th>
+                        <th>Minimum Stock</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for product in products %}
+                    <tr>
+                        <td>{{ product.name }}</td>
+                        <td>{{ product.category.name }}</td>
+                        <td>{{ product.quantity }}</td>
+                        <td>{{ product.minimum_stock }}</td>
+                        <td>
+                            {% if product.quantity == 0 %}
+                            <span class="badge bg-danger">Out of Stock</span>
+                            {% else %}
+                            <span class="badge bg-warning">Low Stock</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <a href="{% url 'product_detail' product.pk %}" class="btn btn-sm btn-info">
+                                <i class="fas fa-eye"></i>
+                            </a>
+                            <a href="{% url 'add_stock' product.pk %}" class="btn btn-sm btn-success">
+                                <i class="fas fa-plus"></i>
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="alert alert-info">
+            <i class="fas fa-info-circle"></i> There are currently no products with low stock levels.
+            <ul class="mt-2">
+                <li>Products appear here when their quantity falls below or equals their minimum stock level.</li>
+                <li>You can set the minimum stock level for each product when adding or editing products.</li>
+            </ul>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Add example card for testing if there are no low stock items -->
+{% if count == 0 %}
+<div class="card">
+    <div class="card-header">
+        <h5 class="mb-0">Testing Low Stock Detection</h5>
+    </div>
+    <div class="card-body">
+        <p>To test the low stock reporting feature:</p>
+        <ol>
+            <li>Edit a product and set its minimum stock level higher than its current quantity</li>
+            <li>Or use the "Remove Stock" feature to reduce a product's quantity below its minimum level</li>
+        </ol>
+        <a href="{% url 'product_list' %}" class="btn btn-primary">
+            <i class="fas fa-boxes"></i> Go to Products
+        </a>
+    </div>
+</div>
+{% endif %}
+{% endblock %} {% endcomment %}
+
+
+{% comment %} 
+{% extends 'inventory/base.html' %}
+{% load inventory_extras %}
+{% load static %}
+
+{% block title %}Low Stock Report{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1>Low Stock Report</h1>
+    <div>
+        <a href="{% url 'export_options' %}" class="btn btn-success">
+            <i class="fas fa-file-csv"></i> Export Options
+        </a>
+        <a href="{% url 'export_products_csv' %}" class="btn btn-success">
+            <i class="fas fa-file-csv"></i> Export CSV
+        </a>
+        <a href="{% url 'dashboard' %}" class="btn btn-secondary">
+            <i class="fas fa-arrow-left"></i> Back to Dashboard
+        </a>
+    </div>
+</div>
+
+<div class="card mb-4">
+    <div class="card-header bg-warning text-dark">
+        <h5 class="mb-0">
+            <i class="fas fa-exclamation-triangle"></i> Low Stock Items: {{ count }}
+        </h5>
+    </div>
+    <div class="card-body">
+        {% if count > 0 %}
+            {% for product in products %}
+                <div class="card mb-4">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">{{ product.name }}</h5>
+                        <div>
+                            {% if product.quantity == 0 %}
+                                <span class="badge bg-danger">Out of Stock</span>
+                            {% else %}
+                                <span class="badge bg-warning">Low Stock</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-4">
+                                <h6 class="mb-3">Product Details</h6>
+                                <table class="table table-sm">
+                                    <tr>
+                                        <th>Category:</th>
+                                        <td>{{ product.category.name }}</td>
+                                    </tr>
+                                    <tr>
+                                        <th>Current Stock:</th>
+                                        <td>{{ product.quantity }}</td>
+                                    </tr>
+                                    <tr>
+                                        <th>Minimum Stock:</th>
+                                        <td>{{ product.minimum_stock }}</td>
+                                    </tr>
+                                    <tr>
+                                        <th>Last Updated:</th>
+                                        <td>{{ product.updated_at|date:"M d, Y H:i" }}</td>
+                                    </tr>
+                                </table>
+                                <div class="mt-3">
+                                    <a href="{% url 'add_stock' product.pk %}" class="btn btn-success btn-sm">
+                                        <i class="fas fa-plus"></i> Add Stock
+                                    </a>
+                                    <a href="{% url 'product_detail' product.pk %}" class="btn btn-info btn-sm">
+                                        <i class="fas fa-eye"></i> View Details
+                                    </a>
+                                </div>
+                            </div>
+                            <div class="col-md-8">
+                                <h6 class="mb-3">Stock Movement History</h6>
+                                {% with movements=product_movements|get_item:product.id %}
+                                    {% if movements %}
+                                        <div class="table-responsive">
+                                            <table class="table table-sm table-hover">
+                                                <thead>
+                                                    <tr>
+                                                        <th>Date & Time</th>
+                                                        <th>Type</th>
+                                                        <th>Quantity</th>
+                                                        <th>By User</th>
+                                                        <th>Note</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {% for movement in movements %}
+                                                        <tr>
+                                                            <td>{{ movement.created_at|date:"M d, Y H:i" }}</td>
+                                                            <td>
+                                                                {% if movement.movement_type == 'in' %}
+                                                                    <span class="badge bg-success">Stock In</span>
+                                                                {% else %}
+                                                                    <span class="badge bg-danger">Stock Out</span>
+                                                                {% endif %}
+                                                            </td>
+                                                            <td>{{ movement.quantity }}</td>
+                                                            <td>{{ movement.created_by.username }}</td>
+                                                            <td>{{ movement.note|default:"-" }}</td>
+                                                        </tr>
+                                                    {% endfor %}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    {% else %}
+                                        <p class="text-muted">No stock movement history found.</p>
+                                    {% endif %}
+                                {% endwith %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            {% endfor %}
+        {% else %}
+            <div class="alert alert-info">
+                <i class="fas fa-info-circle"></i> There are currently no products with low stock levels.
+                <ul class="mt-2">
+                    <li>Products appear here when their quantity falls below or equals their minimum stock level.</li>
+                    <li>You can set the minimum stock level for each product when adding or editing products.</li>
+                </ul>
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+{% if count == 0 %}
+<div class="card">
+    <div class="card-header">
+        <h5 class="mb-0">Testing Low Stock Detection</h5>
+    </div>
+    <div class="card-body">
+        <p>To test the low stock reporting feature:</p>
+        <ol>
+            <li>Edit a product and set its minimum stock level higher than its current quantity</li>
+            <li>Or use the "Remove Stock" feature to reduce a product's quantity below its minimum level</li>
+        </ol>
+        <a href="{% url 'product_list' %}" class="btn btn-primary">
+            <i class="fas fa-boxes"></i> Go to Products
+        </a>
+    </div>
+</div>
+{% endif %}
+{% endblock %} {% endcomment %}
+
+{% comment %} {% extends 'inventory/base.html' %} {% endcomment %}
+{% load static %}
+{% load inventory_extras %}
+
+{% block title %}Low Stock Report{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1>Low Stock Report</h1>
+    <div>
+        <a href="{% url 'export_options' %}" class="btn btn-success">
+            <i class="fas fa-file-csv"></i> Export Options
+        </a>
+        <a href="{% url 'dashboard' %}" class="btn btn-secondary">
+            <i class="fas fa-arrow-left"></i> Back to Dashboard
+        </a>
+    </div>
+</div>
+
+<!-- Filter options -->
+<!-- Filter options -->
+<div class="card mb-4">
+    <div class="card-body">
+        <form method="get" id="filterForm">
+            <div class="row align-items-center">
+                <div class="col-md-3 mb-3">
+                    <label for="productSearch" class="form-label">Product Name:</label>
+                    <input type="text" id="productSearch" name="product_name" class="form-control" 
+                           placeholder="Search by name..." value="{{ request.GET.product_name|default:'' }}">
+                </div>
+                <div class="col-md-3 mb-3">
+                    <label for="categoryFilter" class="form-label">Category:</label>
+                    <select id="categoryFilter" name="category" class="form-select">
+                        <option value="">All Categories</option>
+                        {% for category in categories %}
+                        <option value="{{ category.id }}" {% if request.GET.category == category.id|stringformat:"i" %}selected{% endif %}>{{ category.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-3 mb-3">
+                    <label for="sortOrder" class="form-label">Sort By:</label>
+                    <select id="sortOrder" name="sort" class="form-select">
+                        <option value="name" {% if request.GET.sort == 'name' %}selected{% endif %}>Product Name</option>
+                        <option value="quantity" {% if request.GET.sort == 'quantity' %}selected{% endif %}>Current Stock (Lowest First)</option>
+                        <option value="percent" {% if request.GET.sort == 'percent' %}selected{% endif %}>Stock Level % (Lowest First)</option>
+                    </select>
+                </div>
+                <div class="col-md-3 mb-3">
+                    <label for="stockFilter" class="form-label">Stock Status:</label>
+                    <select id="stockFilter" name="stock" class="form-select">
+                        <option value="all" {% if request.GET.stock == 'all' %}selected{% endif %}>All Products</option>
+                        <option value="zero" {% if request.GET.stock == 'zero' %}selected{% endif %}>Out of Stock Only</option>
+                        <option value="low" {% if request.GET.stock == 'low' %}selected{% endif %}>Low Stock Only</option>
+                        <option value="normal" {% if request.GET.stock == 'normal' %}selected{% endif %}>Normal Stock Only</option>
+                    </select>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="form-check form-switch mb-3">
+                        <input class="form-check-input" type="checkbox" id="showAllProducts" name="show_all" value="true" 
+                               {% if show_all %}checked{% endif %}>
+                        <label class="form-check-label" for="showAllProducts">Show All Products</label>
+                    </div>
+                </div>
+                <div class="col-md-6 text-end">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-filter"></i> Apply Filters
+                    </button>
+                    <a href="{% url 'low_stock_report' %}" class="btn btn-secondary">
+                        <i class="fas fa-undo"></i> Clear Filters
+                    </a>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="card mb-4">
+    <div class="card-header bg-warning text-dark">
+        <div class="d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">
+                <i class="fas fa-exclamation-triangle"></i> Low Stock Items: {{ count }}
+            </h5>
+            <span class="badge bg-dark" id="currentDate">{% now "F d, Y" %}</span>
+        </div>
+    </div>
+    <div class="card-body">
+        {% if count > 0 %}
+            <div id="productCards">
+                {% for product in products %}
+                    <div class="card mb-4 product-card" 
+                         data-category="{{ product.category.id }}" 
+                         data-quantity="{{ product.quantity }}"
+                         data-min-stock="{{ product.minimum_stock }}"
+                         data-percent="{{ product.quantity|percentage:product.minimum_stock }}">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0">{{ product.name }}</h5>
+                            <div>
+                                {% if product.quantity == 0 %}
+                                    <span class="badge bg-danger">Out of Stock</span>
+                                {% else %}
+                                    <span class="badge bg-warning">Low Stock</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-4">
+                                    <h6 class="mb-3">Product Details</h6>
+                                    <table class="table table-sm">
+                                        <tr>
+                                            <th>Category:</th>
+                                            <td>{{ product.category.name }}</td>
+                                        </tr>
+                                        <tr>
+                                            <th>Current Stock:</th>
+                                            <td>{{ product.quantity }}</td>
+                                        </tr>
+                                        <tr>
+                                            <th>Minimum Stock:</th>
+                                            <td>{{ product.minimum_stock }}</td>
+                                        </tr>
+                                        <tr>
+                                            <th>Stock Level:</th>
+                                            <td>
+                                                <div class="progress" style="height: 20px;">
+                                                    <div class="progress-bar bg-{{ product.quantity|stock_level_color }}" 
+                                                         role="progressbar" 
+                                                         style="width: {{ product.quantity|percentage:product.minimum_stock }}%;" 
+                                                         aria-valuenow="{{ product.quantity }}" 
+                                                         aria-valuemin="0" 
+                                                         aria-valuemax="{{ product.minimum_stock }}">
+                                                        {{ product.quantity|percentage:product.minimum_stock }}%
+                                                    </div>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    </table>
+                                    <div class="mt-3 d-flex gap-2">
+                                        <a href="{% url 'add_stock' product.pk %}" class="btn btn-success btn-sm">
+                                            <i class="fas fa-plus"></i> Add Stock
+                                        </a>
+                                        <a href="{% url 'product_detail' product.pk %}" class="btn btn-info btn-sm">
+                                            <i class="fas fa-eye"></i> View Details
+                                        </a>
+                                    </div>
+                                </div>
+                                <div class="col-md-8">
+                                    <h6 class="mb-3">Stock Movement History</h6>
+                                    {% with movements=product_movements|get_item:product.id %}
+                                        {% if movements %}
+                                            <div class="table-responsive">
+                                                <table class="table table-sm table-hover">
+                                                    <thead>
+                                                        <tr>
+                                                            <th>Date & Time</th>
+                                                            <th>Type</th>
+                                                            <th>Quantity</th>
+                                                            <th>By User</th>
+                                                            <th>Note</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        {% for movement in movements %}
+                                                            <tr>
+                                                                <td>{{ movement.created_at|date:"M d, Y H:i" }}</td>
+                                                                <td>
+                                                                    {% if movement.movement_type == 'in' %}
+                                                                        <span class="badge bg-success">Stock In</span>
+                                                                    {% else %}
+                                                                        <span class="badge bg-danger">Stock Out</span>
+                                                                    {% endif %}
+                                                                </td>
+                                                                <td>{{ movement.quantity }}</td>
+                                                                <td>{{ movement.created_by.username }}</td>
+                                                                <td>{{ movement.note|default:"-" }}</td>
+                                                            </tr>
+                                                        {% endfor %}
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        {% else %}
+                                            <p class="text-muted">No stock movement history found.</p>
+                                        {% endif %}
+                                    {% endwith %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <div class="alert alert-info">
+                <i class="fas fa-info-circle"></i> There are currently no products with low stock levels.
+                <ul class="mt-2">
+                    <li>Products appear here when their quantity falls below or equals their minimum stock level.</li>
+                    <li>You can set the minimum stock level for each product when adding or editing products.</li>
+                </ul>
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+{% if count == 0 %}
+<div class="card">
+    <div class="card-header">
+        <h5 class="mb-0">Testing Low Stock Detection</h5>
+    </div>
+    <div class="card-body">
+        <p>To test the low stock reporting feature:</p>
+        <ol>
+            <li>Edit a product and set its minimum stock level higher than its current quantity</li>
+            <li>Or use the "Remove Stock" feature to reduce a product's quantity below its minimum level</li>
+        </ol>
+        <a href="{% url 'product_list' %}" class="btn btn-primary">
+            <i class="fas fa-boxes"></i> Go to Products
+        </a>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const categoryFilter = document.getElementById('categoryFilter');
+        const sortOrder = document.getElementById('sortOrder');
+        const stockFilter = document.getElementById('stockFilter');
+        const applyFiltersBtn = document.getElementById('applyFilters');
+        const productCards = document.querySelectorAll('.product-card');
+        
+        // Apply filters function
+        function applyFilters() {
+            const selectedCategory = categoryFilter.value;
+            const selectedSort = sortOrder.value;
+            const selectedStock = stockFilter.value;
+            
+            // Filter by category and stock status
+            productCards.forEach(card => {
+                let show = true;
+                
+                // Category filter
+                if (selectedCategory && card.dataset.category !== selectedCategory) {
+                    show = false;
+                }
+                
+                // Stock status filter
+                if (selectedStock === 'zero' && parseInt(card.dataset.quantity) !== 0) {
+                    show = false;
+                } else if (selectedStock === 'low' && parseInt(card.dataset.quantity) === 0) {
+                    show = false;
+                }
+                
+                card.style.display = show ? '' : 'none';
+            });
+            
+            // Sort cards
+            const container = document.getElementById('productCards');
+            const cards = Array.from(productCards).filter(card => card.style.display !== 'none');
+            
+            if (selectedSort === 'name') {
+                cards.sort((a, b) => a.querySelector('h5').innerText.localeCompare(b.querySelector('h5').innerText));
+            } else if (selectedSort === 'quantity') {
+                cards.sort((a, b) => parseInt(a.dataset.quantity) - parseInt(b.dataset.quantity));
+            } else if (selectedSort === 'percent') {
+                cards.sort((a, b) => parseFloat(a.dataset.percent) - parseFloat(b.dataset.percent));
+            }
+            
+            // Reorder cards
+            cards.forEach(card => container.appendChild(card));
+        }
+        
+        applyFiltersBtn.addEventListener('click', applyFilters);
+        
+        // Initial sort by name
+        applyFilters();
+    });
+
+    // Add to your existing JavaScript in the template
+const showAllCheckbox = document.getElementById('showAllProducts');
+showAllCheckbox.addEventListener('change', function() {
+    window.location.href = '{% url "low_stock_report" %}?show_all=' + (this.checked ? 'true' : 'false');
+});
+
+// Update the stockFilter options
+stockFilter.addEventListener('change', function() {
+    const selectedValue = this.value;
+    productCards.forEach(card => {
+        let show = true;
+        const quantity = parseInt(card.dataset.quantity);
+        const minStock = parseInt(card.dataset.minStock);
+        
+        if (selectedValue === 'zero' && quantity !== 0) {
+            show = false;
+        } else if (selectedValue === 'low' && (quantity === 0 || quantity > minStock)) {
+            show = false;
+        } else if (selectedValue === 'normal' && quantity <= minStock) {
+            show = false;
+        }
+        
+        card.style.display = show ? '' : 'none';
+    });
+});
+</script>
+{% endblock %}

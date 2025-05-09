@@ -1,0 +1,484 @@
+{% extends 'inventory/base.html' %}
+{% load static %}
+
+{% block title %}Dashboard{% endblock %}
+
+{% block content %}
+<h1 class="mb-4">Dashboard</h1>
+
+<!-- Summary Cards Row -->
+<div class="row">
+    <div class="col-md-3 mb-4">
+        <div class="card border-left-primary shadow h-100">
+            <div class="card-body">
+                <div class="row no-gutters align-items-center">
+                    <div class="col-auto">
+                        <i class="fas fa-boxes fa-2x text-primary"></i>
+                    </div>
+                    <div class="col ml-3">
+                        <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">
+                            Total Products
+                        </div>
+                        <div class="h5 mb-0 font-weight-bold text-gray-800">{{ total_products }}</div>
+                    </div>
+                </div>
+            </div>
+            <div class="card-footer">
+                <a href="{% url 'product_list' %}" class="btn btn-sm btn-primary w-100">View Products</a>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3 mb-4">
+        <div class="card border-left-success shadow h-100">
+            <div class="card-body">
+                <div class="row no-gutters align-items-center">
+                    <div class="col-auto">
+                        <i class="fas fa-tags fa-2x text-success"></i>
+                    </div>
+                    <div class="col ml-3">
+                        <div class="text-xs font-weight-bold text-success text-uppercase mb-1">
+                            Total Categories
+                        </div>
+                        <div class="h5 mb-0 font-weight-bold text-gray-800">{{ total_categories }}</div>
+                    </div>
+                </div>
+            </div>
+            <div class="card-footer">
+                <a href="{% url 'category_list' %}" class="btn btn-sm btn-success w-100">View Categories</a>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3 mb-4">
+        <div class="card border-left-warning shadow h-100">
+            <div class="card-body">
+                <div class="row no-gutters align-items-center">
+                    <div class="col-auto">
+                        <i class="fas fa-exclamation-triangle fa-2x text-warning"></i>
+                    </div>
+                    <div class="col ml-3">
+                        <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">
+                            Low Stock Items
+                        </div>
+                        <div class="h5 mb-0 font-weight-bold text-gray-800">{{ low_stock_count }}</div>
+                    </div>
+                </div>
+            </div>
+            <div class="card-footer">
+                <a href="{% url 'low_stock_report' %}" class="btn btn-sm btn-warning w-100">View Report</a>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3 mb-4">
+        <div class="card border-left-info shadow h-100">
+            <div class="card-body">
+                <div class="row no-gutters align-items-center">
+                    <div class="col-auto">
+                        <i class="fas fa-clipboard-list fa-2x text-info"></i>
+                    </div>
+                    <div class="col ml-3">
+                        <div class="text-xs font-weight-bold text-info text-uppercase mb-1">
+                            Stock Movements
+                        </div>
+                        <div class="h5 mb-0 font-weight-bold text-gray-800">{{ total_movements }}</div>
+                    </div>
+                </div>
+            </div>
+            <div class="card-footer">
+                <a href="{% url 'all_movements' %}" class="btn btn-sm btn-info w-100">View All</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Charts Row -->
+<div class="row">
+    <!-- Stock Distribution by Category -->
+    <div class="col-md-6 mb-4">
+        <div class="card shadow">
+            <div class="card-header py-3 d-flex justify-content-between align-items-center">
+                <h6 class="m-0 font-weight-bold text-primary">Stock Distribution by Category</h6>
+                <div class="dropdown">
+                    <button class="btn btn-sm btn-light dropdown-toggle" type="button" id="categoryChartOptions" data-bs-toggle="dropdown">
+                        <i class="fas fa-ellipsis-v"></i>
+                    </button>
+                    <div class="dropdown-menu dropdown-menu-end">
+                        <a class="dropdown-item" href="#" id="refreshCategoryChart">Refresh</a>
+                        <a class="dropdown-item" href="#" id="downloadCategoryChart">Download</a>
+                    </div>
+                </div>
+            </div>
+            <div class="card-body">
+                <canvas id="categoryChart" height="300"></canvas>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Stock Level Status -->
+    <div class="col-md-6 mb-4">
+        <div class="card shadow">
+            <div class="card-header py-3 d-flex justify-content-between align-items-center">
+                <h6 class="m-0 font-weight-bold text-primary">Stock Level Status</h6>
+                <div class="dropdown">
+                    <button class="btn btn-sm btn-light dropdown-toggle" type="button" id="stockStatusOptions" data-bs-toggle="dropdown">
+                        <i class="fas fa-ellipsis-v"></i>
+                    </button>
+                    <div class="dropdown-menu dropdown-menu-end">
+                        <a class="dropdown-item" href="#" id="refreshStockChart">Refresh</a>
+                        <a class="dropdown-item" href="#" id="downloadStockChart">Download</a>
+                    </div>
+                </div>
+            </div>
+            <div class="card-body">
+                <canvas id="stockStatusChart" height="300"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Recent Activities and Top Products Row -->
+<div class="row">
+    <!-- Recent Activity -->
+    <div class="col-md-6 mb-4">
+        <div class="card shadow">
+            <div class="card-header py-3">
+                <h6 class="m-0 font-weight-bold text-primary">Recent Activity</h6>
+            </div>
+            <div class="card-body">
+                <div class="list-group">
+                    {% for movement in recent_movements %}
+                    <div class="list-group-item">
+                        {% if movement.movement_type == 'in' %}
+                        <span class="badge bg-success">Stock In</span>
+                        {% else %}
+                        <span class="badge bg-danger">Stock Out</span>
+                        {% endif %}
+                        <strong>{{ movement.product.name }}</strong> - {{ movement.quantity }} units
+                        <small class="text-muted d-block">{{ movement.created_at|date:"M d, Y H:i" }} by {{ movement.created_by.username }}</small>
+                        {% if movement.note %}
+                        <small class="d-block">Note: {{ movement.note }}</small>
+                        {% endif %}
+                    </div>
+                    {% empty %}
+                    <div class="list-group-item">No recent activity</div>
+                    {% endfor %}
+                </div>
+                {% if recent_movements %}
+                <div class="text-center mt-3">
+                    <a href="#" class="btn btn-sm btn-primary">View All Activity</a>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <!-- Top Products (By Movement) -->
+    <div class="col-md-6 mb-4">
+        <div class="card shadow">
+            <div class="card-header py-3">
+                <h6 class="m-0 font-weight-bold text-primary">Most Active Products</h6>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Product</th>
+                                <th>Category</th>
+                                <th>Current Stock</th>
+                                <th>Movement Count</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for product in top_products %}
+                            <tr>
+                                <td>
+                                    <a href="#">
+                                        {{ product.name }}
+                                    </a>
+                                </td>
+                                <td>{{ product.category.name }}</td>
+                                <td>
+                                    {{ product.quantity }}
+                                    {% if product.is_low_stock %}
+                                    <span class="badge bg-warning">Low</span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ product.movement_count }}</td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="4" class="text-center">No products found</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Stock Level Timeline -->
+<div class="row">
+    <div class="col-12 mb-4">
+        <div class="card shadow">
+            <div class="card-header py-3">
+                <h6 class="m-0 font-weight-bold text-primary">Stock Level Timeline (Last 30 Days)</h6>
+            </div>
+            <div class="card-body">
+                <canvas id="stockTimelineChart" height="300"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Category Distribution Chart
+        const ctxCategory = document.getElementById('categoryChart').getContext('2d');
+        fetch('{% url "category_stats" %}')
+            .then(response => response.json())
+            .then(data => {
+                new Chart(ctxCategory, {
+                    type: 'doughnut',
+                    data: {
+                        labels: data.labels,
+                        datasets: [{
+                            data: data.values,
+                            backgroundColor: [
+                                '#4e73df', '#1cc88a', '#36b9cc', '#f6c23e', '#e74a3b',
+                                '#fd7e14', '#20c9a6', '#5a5c69', '#858796', '#f8f9fc'
+                            ],
+                            hoverOffset: 4
+                        }]
+                    },
+                    options: {
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                position: 'right',
+                            }
+                        }
+                    }
+                });
+            })
+            .catch(error => {
+                console.error('Error loading chart data:', error);
+                document.getElementById('categoryChart').innerHTML = 'Error loading chart data';
+            });
+            
+        // Stock Status Chart
+        const ctxStockStatus = document.getElementById('stockStatusChart').getContext('2d');
+        fetch('{% url "stock_status_stats" %}')
+            .then(response => response.json())
+            .then(data => {
+                new Chart(ctxStockStatus, {
+                    type: 'pie',
+                    data: {
+                        labels: ['Out of Stock', 'Low Stock', 'Normal Stock'],
+                        datasets: [{
+                            data: [data.out_of_stock, data.low_stock, data.normal_stock],
+                            backgroundColor: ['#e74a3b', '#f6c23e', '#1cc88a'],
+                            hoverOffset: 4
+                        }]
+                    },
+                    options: {
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                position: 'right',
+                            }
+                        }
+                    }
+                });
+            })
+            .catch(error => {
+                console.error('Error loading chart data:', error);
+                document.getElementById('stockStatusChart').innerHTML = 'Error loading chart data';
+            });
+            
+        // Stock Timeline Chart
+        const ctxTimeline = document.getElementById('stockTimelineChart').getContext('2d');
+        fetch('{% url "stock_timeline_stats" %}')
+            .then(response => response.json())
+            .then(data => {
+                new Chart(ctxTimeline, {
+                    type: 'line',
+                    data: {
+                        labels: data.dates,
+                        datasets: data.datasets
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: {
+                            y: {
+                                beginAtZero: true
+                            }
+                        }
+                    }
+                });
+            })
+            .catch(error => {
+                console.error('Error loading chart data:', error);
+                document.getElementById('stockTimelineChart').innerHTML = 'Error loading chart data';
+            });
+    });
+
+    // Stock Projection Chart
+const ctxProjection = document.getElementById('stockProjectionChart').getContext('2d');
+fetch('{% url "stock_projection_stats" %}')
+    .then(response => response.json())
+    .then(data => {
+        new Chart(ctxProjection, {
+            type: 'line',
+            data: {
+                labels: data.dates,
+                datasets: data.datasets
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        title: {
+                            display: true,
+                            text: 'Projected Quantity'
+                        }
+                    },
+                    x: {
+                        title: {
+                            display: true,
+                            text: 'Date'
+                        }
+                    }
+                },
+                plugins: {
+                    tooltip: {
+                        callbacks: {
+                            title: function(tooltipItems) {
+                                return 'Projected for: ' + tooltipItems[0].label;
+                            }
+                        }
+                    },
+                    legend: {
+                        onClick: function(e, legendItem, legend) {
+                            // Custom legend click handler
+                            const index = legendItem.datasetIndex;
+                            const ci = legend.chart;
+                            
+                            // If this is a minimum level line, also toggle the main line and vice versa
+                            if (legendItem.text.includes('Min Level')) {
+                                // This is a min level line, find the corresponding main line
+                                const mainLabel = legendItem.text.replace(' Min Level', '');
+                                for (let i = 0; i < ci.data.datasets.length; i++) {
+                                    if (ci.data.datasets[i].label === mainLabel) {
+                                        ci.getDatasetMeta(i).hidden = !ci.getDatasetMeta(i).hidden;
+                                        break;
+                                    }
+                                }
+                            } else {
+                                // This is a main line, find the corresponding min level line
+                                const minLabel = legendItem.text + ' Min Level';
+                                for (let i = 0; i < ci.data.datasets.length; i++) {
+                                    if (ci.data.datasets[i].label === minLabel) {
+                                        ci.getDatasetMeta(i).hidden = !ci.getDatasetMeta(i).hidden;
+                                        break;
+                                    }
+                                }
+                            }
+                            
+                            // Toggle the clicked item itself
+                            ci.getDatasetMeta(index).hidden = !ci.getDatasetMeta(index).hidden;
+                            ci.update();
+                        }
+                    }
+                }
+            }
+        });
+    })
+    .catch(error => {
+        console.error('Error loading projection data:', error);
+        document.getElementById('stockProjectionChart').innerHTML = 'Error loading projection data';
+    });
+
+    // Product Activity Chart
+const ctxActivity = document.getElementById('productActivityChart').getContext('2d');
+fetch('{% url "product_activity_stats" %}')
+    .then(response => response.json())
+    .then(data => {
+        new Chart(ctxActivity, {
+            type: 'bar',
+            data: {
+                labels: data.product_names,
+                datasets: [
+                    {
+                        label: 'Stock In',
+                        data: data.in_counts,
+                        backgroundColor: '#36b9cc',
+                        borderColor: '#36b9cc',
+                        borderWidth: 1
+                    },
+                    {
+                        label: 'Stock Out',
+                        data: data.out_counts,
+                        backgroundColor: '#e74a3b',
+                        borderColor: '#e74a3b',
+                        borderWidth: 1
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        title: {
+                            display: true,
+                            text: 'Number of Movements'
+                        }
+                    },
+                    x: {
+                        title: {
+                            display: true,
+                            text: 'Product'
+                        }
+                    }
+                },
+                plugins: {
+                    legend: {
+                        position: 'top',
+                    },
+                    tooltip: {
+                        callbacks: {
+                            title: function(tooltipItems) {
+                                return tooltipItems[0].label;
+                            },
+                            label: function(context) {
+                                let label = context.dataset.label || '';
+                                if (label) {
+                                    label += ': ';
+                                }
+                                label += context.parsed.y;
+                                return label + ' movements';
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    })
+    .catch(error => {
+        console.error('Error loading activity data:', error);
+        document.getElementById('productActivityChart').innerHTML = 'Error loading activity data';
+    });
+</script>
+
+{% endblock %}

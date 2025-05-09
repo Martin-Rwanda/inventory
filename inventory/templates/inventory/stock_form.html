@@ -1,0 +1,98 @@
+{% extends 'inventory/base.html' %}
+{% load static %}
+
+{% block title %}
+{% if movement_type == 'in' %}Add Stock{% else %}Remove Stock{% endif %} - {{ product.name }}
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1>
+        {% if movement_type == 'in' %}Add Stock to{% else %}Remove Stock from{% endif %} {{ product.name }}
+    </h1>
+    <a href="{% url 'product_detail' product.pk %}" class="btn btn-secondary">
+        <i class="fas fa-arrow-left"></i> Back to Product
+    </a>
+</div>
+
+<div class="row">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                Product Information
+            </div>
+            <div class="card-body">
+                <p><strong>Category:</strong> {{ product.category.name }}</p>
+                <p><strong>Current Stock:</strong> {{ product.quantity }}</p>
+                <p><strong>Minimum Stock:</strong> {{ product.minimum_stock }}</p>
+                <p>
+                    <strong>Status:</strong>
+                    {% if product.is_low_stock %}
+                    <span class="badge bg-danger">Low Stock</span>
+                    {% else %}
+                    <span class="badge bg-success">In Stock</span>
+                    {% endif %}
+                </p>
+                {% if product.quantity == 0 %}
+                <div class="alert alert-danger">
+                    <i class="fas fa-exclamation-circle"></i> Cannot remove tock as current quantity is 0.
+                </div>
+                {% elif product.is_low_stock %}
+                <div class="alert alert-warning">
+                    <i class="fas fa-exclamation-circle"></i> Warning: This product is already at or below minimum stock level.
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header bg-{% if movement_type == 'in' %}success{% else %}danger{% endif %}">
+                <h5><i class="fas fa-{% if movement_type == 'in' %}plus{% else %}minus{% endif %}"></i>
+                {% if movement_type == 'in' %}Add Stock{% else %}Remove Stock{% endif %}
+                </h5>
+            </div>
+            <div class="card-body">
+                <form method="post">
+                    {% csrf_token %}
+                    <div class="mb-3">
+                        <label for="quantity" class="form-label">Quantity</label>
+                        <input type="number" class="form-control" id="quantity" name="quantity" min="1" 
+                               {% if movement_type == 'out' %}max="{{ product.quantity }}"{% endif %} required>
+                        {% if movement_type == 'out' and product.quantity == 0 %}
+                        <div class="text-danger mt-1">Cannot remove stock as current quantity is 0</div>
+                        {% endif %}
+                    </div>
+                    {% if movement_type == 'out'%}
+                        <div class="mb-3">
+                            <label for="reason" class="form-label">Reason</label>
+                            <select class="form-select" id="reason" name="reason" {% if product.quantity == 0 %}disabled{% endif %}>
+                                <option value="sale">Sale</option>
+                                <option value="damage">Damaged/Defective</option>
+                                <option value="expired">Expired</option>
+                                <option value="theft">Theft/Loss</option>
+                                <option value="return">Returned to Supplier</option>
+                                <option value="other">Other</option>
+                            </select>
+                        </div>
+                    {% endif %}
+                    
+                    <div class="mb-3">
+                        <label for="note" class="form-label">Note (Optional)</label>
+                        <textarea class="form-control" id="note" name="note" rows="3" placeholder="Provide any additional information..."></textarea>
+                    </div>
+                    
+                    <div class="d-grid">
+                        <button type="submit" class="btn btn-{% if movement_type == 'in' %}success{% else %}danger{% endif %}" 
+                                {% if movement_type == 'out' and product.quantity == 0 %}disabled{% endif %}>
+                            <i class="fas fa-{% if movement_type == 'in' %}plus{% else %}minus{% endif %}"></i> 
+                            {% if movement_type == 'in' %}Add{% else %}Remove{% endif %} Stock
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

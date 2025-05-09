@@ -1,0 +1,93 @@
+{% extends 'inventory/base.html' %}
+{% load static %}
+
+{% block title %}Export Options{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1>Export Options</h1>
+    <a href="{% url 'dashboard' %}" class="btn btn-secondary">
+        <i class="fas fa-arrow-left"></i> Back to Dashboard
+    </a>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <h5 class="mb-0">Configure Export</h5>
+    </div>
+    <div class="card-body">
+        <form action="{% url 'export_products_csv' %}" method="get">
+            <div class="mb-4">
+                <label class="form-label fw-bold">Export Type</label>
+                
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" name="include_history" id="include_history">
+                    <label class="form-check-label" for="include_history">
+                        Include full movement history (stock in/out, dates, users)
+                    </label>
+                </div>
+                <small class="text-muted">If unchecked, only current stock levels will be exported</small>
+            </div>
+            
+            <div class="mb-4">
+                <label class="form-label fw-bold">Select Products</label>
+                <div class="mb-2">
+                    <button type="button" class="btn btn-sm btn-outline-primary" id="selectAll">Select All</button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary" id="deselectAll">Deselect All</button>
+                    <button type="button" class="btn btn-sm btn-outline-warning" id="selectLowStock">Select Low Stock Only</button>
+                </div>
+                
+                <div class="row" style="max-height: 400px; overflow-y: auto;">
+                    {% for product in products %}
+                    <div class="col-md-4 mb-2">
+                        <div class="form-check">
+                            <input class="form-check-input product-checkbox" type="checkbox" name="products" 
+                                  value="{{ product.id }}" id="product_{{ product.id }}"
+                                  data-low-stock="{% if product.is_low_stock %}true{% else %}false{% endif %}">
+                            <label class="form-check-label" for="product_{{ product.id }}">
+                                {{ product.name }}
+                                {% if product.is_low_stock %}
+                                <span class="badge bg-warning">Low Stock</span>
+                                {% endif %}
+                            </label>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                <small class="text-muted">If none selected, all products will be included</small>
+            </div>
+            
+            <div class="d-grid">
+                <button type="submit" class="btn btn-success">
+                    <i class="fas fa-file-csv"></i> Generate CSV Export
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const selectAllBtn = document.getElementById('selectAll');
+        const deselectAllBtn = document.getElementById('deselectAll');
+        const selectLowStockBtn = document.getElementById('selectLowStock');
+        const checkboxes = document.querySelectorAll('.product-checkbox');
+        
+        selectAllBtn.addEventListener('click', function() {
+            checkboxes.forEach(checkbox => checkbox.checked = true);
+        });
+        
+        deselectAllBtn.addEventListener('click', function() {
+            checkboxes.forEach(checkbox => checkbox.checked = false);
+        });
+        
+        selectLowStockBtn.addEventListener('click', function() {
+            checkboxes.forEach(checkbox => {
+                checkbox.checked = checkbox.dataset.lowStock === 'true';
+            });
+        });
+    });
+</script>
+{% endblock %}

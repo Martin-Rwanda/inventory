@@ -1,0 +1,80 @@
+{% extends 'inventory/base.html' %}
+
+
+{% block title %}Login{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6 col-lg-4">
+        <div class="card mt-5">
+            <div class="card-header text-center">
+                <h3><i class="fas fa-user-plus me-2"></i>Register</h3>
+                <p class="text-muted mb-0">Create a new account</p>
+            </div>
+            <div class="card-body">
+                {% if error_message %}
+                  <div class="alert alert-danger">
+                    {{ error_message }}
+                  </div>
+                  {% endif %}
+                <form action="" method="post">
+                    {% csrf_token %}
+                    <div class="mb-3">
+                        <label for="id_username" class="form-label">Username</label>
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="fas fa-user"></i></span>
+                            <input type="text" name="username" id="id_username" class="form-control" required>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="id_email" class="form-label">Email</label>
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="fas fa-envelope"></i></span>
+                            <input type="email" name="email" id="id_email" class="form-control">
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="id_password1" class="form-label">Password</label>
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="fas fa-lock"></i></span>
+                            <input type="password" name="password1" id="id_password1" class="form-control" required>
+                            <small class="form-text text-muted">
+                                Password must be 5 characters and contain numbers and letters.
+                            </small>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="id_password2" class="form-label">Confirm Password</label>
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="fas fa-lock"></i></span>
+                            <input type="password" name="password2" id="id_password2" class="form-control" required>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="id_role" class="form-label">Select Role</label>
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="fas fa-user-tag"></i></span>
+                            <select name="role" id="id_role" class="form-select" required>
+                                <option value="">Select role</option>
+                                {% for role_value, role_display in role_choices %}
+                                    <option value="{{ role_value }}">{{ role_value }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="d-grid mb-3">
+                        <button type="submit"  class="btn btn-primary">
+                            <i class="fas fa-user-plus me-2"></i> Register
+                        </button>
+                    </div>
+                    <div class="text-center mt-3">
+                        <p>You have an account <a href="{% url 'login' %}">Login</a></p>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}

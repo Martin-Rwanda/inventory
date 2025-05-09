@@ -1,0 +1,109 @@
+{% extends 'inventory/base.html' %}
+{% load static %}
+
+{% block title %}{{ product.name }}{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1>{{ product.name }}</h1>
+    <div>
+        <a href="{% url 'product_list' %}" class="btn btn-secondary">
+            <i class="fas fa-arrow-left"></i> Back to List
+        </a>
+        <a href="{% url 'edit_product' product.pk %}" class="btn btn-warning">
+            <i class="fas fa-edit"></i> Edit Product
+        </a>
+        <a href="{% url 'add_stock' product.pk %}" class="btn btn-success">
+            <i class="fas fa-plus"></i> Add Stock
+        </a>
+        <a href="{% url 'remove_stock' product.pk %}" class="btn btn-danger">
+            <i class="fas fa-minus"></i> Remove Stock
+        </a>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                Stock Movement History
+            </div>
+            <div class="card-body">
+                {% if movements %}
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Date & Time</th>
+                                <th>Type</th>
+                                <th>Quantity</th>
+                                <th>User</th>
+                                <th>Note</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for movement in movements %}
+                            <tr>
+                                <td>{{ movement.created_at|date:"M d, Y H:i" }}</td>
+                                <td>
+                                    {% if movement.movement_type == 'in' %}
+                                    <span class="badge bg-success">Stock In</span>
+                                    {% else %}
+                                    <span class="badge bg-danger">Stock Out</span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ movement.quantity }}</td>
+                                <td>{{ movement.created_by.username }}</td>
+                                <td>{{ movement.note|default:"-" }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                
+                {% if movements.count > 10 %}
+                <div class="text-center mt-3">
+                    <a href="#" class="btn btn-outline-primary">
+                        <i class="fas fa-history"></i> View Full History ({{ movements.count }} movements)
+                    </a>
+                </div>
+                {% endif %}
+                
+                {% else %}
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle"></i> No stock movements recorded yet.
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                Recent Stock Movements
+            </div>
+            <div class="card-body">
+                <div class="list-group">
+                    {% for movement in movements %}
+                    <div class="list-group-item">
+                        {% if movement.movement_type == 'in' %}
+                        <span class="badge bg-success">Stock In</span>
+                        {% else %}
+                        <span class="badge bg-danger">Stock Out</span>
+                        {% endif %}
+                        <strong>{{ movement.quantity }}</strong> units
+                        <small class="text-muted d-block">{{ movement.created_at|date:"M d, Y H:i" }} by {{ movement.created_by.username }}</small>
+                        {% if movement.note %}
+                        <small class="d-block">Note: {{ movement.note }}</small>
+                        {% endif %}
+                    </div>
+                    {% empty %}
+                    <div class="list-group-item">No stock movements recorded</div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
