@@ -39,8 +39,10 @@
                         <td>${{ product.price }}</td>
                         <td>{{ product.quantity }}</td>
                         <td>
-                            {% if product.is_low_stock %}
-                            <span class="badge bg-danger">Low Stock</span>
+                            {% if product.is_zero %}
+                            <span class="badge bg-danger">Out of Stock</span>
+                            {% elif product.is_low_stock %}
+                            <span class="badge bg-warning">Low Stock</span>
                             {% else %}
                             <span class="badge bg-success">In Stock</span>
                             {% endif %}

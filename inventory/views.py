@@ -7,6 +7,7 @@ from django.contrib.auth.password_validation import validate_password
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.views.decorators.cache import never_cache
+from django.views.decorators.csrf import csrf_protect
 from django.db.models import Count, Sum, F, Q
 from django.core.exceptions import ValidationError
 from django.core.paginator import Paginator
@@ -18,6 +19,8 @@ import re
 from .models import UserProfile, Product, Category, StockMovement
 from pickle import FALSE
 
+@never_cache
+@csrf_protect
 def register_uer(request):
     error_message = None
     
@@ -81,6 +84,9 @@ def register_uer(request):
     
     return render(request, 'registration/register.html', context)
 
+
+@never_cache
+@csrf_protect
 def login_user(request):
     error_message = None
     if request.method == 'POST':
@@ -110,6 +116,7 @@ def login_user(request):
 
 @login_required
 def logout_user(request):
+    request.session.flush()
     logout(request)
     return redirect('login')
 
@@ -167,18 +174,17 @@ def product_list(request):
     products = Product.objects.all().order_by('-id')
     return render(request, 'inventory/product_list.html', {'products': products})
 
-@login_required
+
+@never_cache
+@csrf_protect
 def add_product(request):
-    # if not has_any_role(request.user, ['Admin', 'Manager']):
-    #     messages.error(request, "'You don't have permission to add products.")
-    #     return redirect('product_list')
     
     if request.method == 'POST':
         name = request.POST.get('name')
         description = request.POST.get('description')
         category_id = request.POST.get('category')
         price = request.POST.get('price')
-        quantity = request.POST.get('quantity')
+        quantity = int(request.POST.get('quantity'))
         minimum_stock = request.POST.get('minimum_stock')
         
         category = get_object_or_404(Category, pk=category_id)
@@ -188,7 +194,7 @@ def add_product(request):
             description=description,
             category=category,
             price=price,
-            quantity=quantity,
+            quantity=0,
             minimum_stock=minimum_stock
         )
         
@@ -218,6 +224,8 @@ def product_detail(request, pk):
     }
     return render(request, 'inventory/product_detail.html', context)
 
+@never_cache
+@csrf_protect
 @login_required
 def edit_product(request, pk):
     product = get_object_or_404(Product, pk=pk)
@@ -234,6 +242,8 @@ def edit_product(request, pk):
     categories = Category.objects.all()
     return render(request, 'inventory/product_form.html', {'product': product, 'categories': categories})
 
+@never_cache
+@csrf_protect
 @login_required
 def delete_product(request, pk):
     product = get_object_or_404(Product, pk=pk)
@@ -249,6 +259,8 @@ def category_list(request):
     categories = Category.objects.all().order_by('-id')
     return render(request, 'inventory/category_list.html', {'categories': categories})
 
+@never_cache
+@csrf_protect
 @login_required
 def add_category(request):
     if request.method == 'POST':
@@ -274,6 +286,8 @@ def category_detail(request, pk):
     }
     return render(request, 'inventory/category_detail.html', context)
 
+@never_cache
+@csrf_protect
 @login_required
 def delete_category(request, pk):
     category = get_object_or_404(Category, pk=pk)
@@ -400,7 +414,8 @@ def export_movements_csv(request):
     return response
 
 
-
+@never_cache
+@csrf_protect
 @login_required
 def add_stock(request, product_id):
     product = get_object_or_404(Product, pk=product_id)
@@ -422,6 +437,8 @@ def add_stock(request, product_id):
     
     return render(request, 'inventory/stock_form.html', {'product': product, 'movement_type': 'in'})
 
+@never_cache
+@csrf_protect
 @login_required
 def remove_stock(request, product_id):
     product = get_object_or_404(Product, pk=product_id)
@@ -589,6 +606,7 @@ def low_stock_report(request):
 
 
 #apis
+@never_cache
 @login_required
 def category_stats(request):
     from django.db.models import Sum, Count
@@ -606,7 +624,7 @@ def category_stats(request):
         'values': values
     })
     
-    
+@never_cache
 @login_required
 def stock_status_stats(request):
     """API view that returns stock status statistics for charts"""
@@ -622,7 +640,8 @@ def stock_status_stats(request):
         'normal_stock': normal_stock,
         'total': total_products
     })
-    
+ 
+@never_cache   
 @login_required
 def stock_timeline_stats(request):
     """API view that returns stock movement timeline for charts"""
@@ -699,7 +718,7 @@ def stock_timeline_stats(request):
         'datasets': datasets
     })
     
-
+@never_cache
 @login_required
 def stock_projection_stats(request):
     """API view that returns projected stock changes for the next 14 days"""
@@ -772,7 +791,7 @@ def stock_projection_stats(request):
         'datasets': datasets
     })
     
-
+@never_cache
 @login_required
 def product_activity_stats(request):
     """API view that returns product activity statistics for charts"""
@@ -793,7 +812,7 @@ def product_activity_stats(request):
         'out_counts': out_counts
     })
     
-
+@never_cache
 @login_required
 def all_movements(request):
     """View to display all stock movements with filtering options"""
