@@ -123,56 +123,124 @@ def logout_user(request):
 @never_cache
 @login_required
 def dashboard(request):
-    if request.user.is_authenticated:
+    if not request.user.is_authenticated:
+        return render(request, 'registration/login.html')
+    
+    # Get user profile or redirect to profile creation
+    try:
+        user_profile = request.user.profile.first()
+        if not user_profile:
+            # Handle case where user doesn't have a profile
+            context = {'error': 'Please complete your profile setup.'}
+            return render(request, 'inventory/dashboard.html', context)
+    except:
+        context = {'error': 'Please complete your profile setup.'}
+        return render(request, 'inventory/dashboard.html', context)
+    
+    # Base context
+    context = {
+        'user_profile': user_profile,
+    }
+    
+    if user_profile.is_manager:
+        # Manager sees all data
         low_stock_products = Product.objects.filter(quantity__lte=F('minimum_stock'))
         total_products = Product.objects.count()
         total_categories = Category.objects.count()
-        recent_movements = StockMovement.objects.select_related('product', 'created_by').order_by('-created_at')[:10]
+        recent_movements = StockMovement.objects.select_related(
+            'product', 'created_by'
+        ).order_by('-created_at')[:10]
         total_movements = StockMovement.objects.count()
         
-        # Get top products by movement count
+        # Get top products by movement count (all products)
         top_products = Product.objects.annotate(
             movement_count=Count('movements')
         ).select_related('category').order_by('-movement_count')[:5]
         
-        context = {
+        # Additional manager-specific data
+        staff_count = UserProfile.objects.filter(role='staff').count()
+        
+        context.update({
             'low_stock_count': low_stock_products.count(),
             'total_products': total_products,
             'total_categories': total_categories,
             'recent_movements': recent_movements,
             'total_movements': total_movements,
-            'top_products': top_products
-        }
-        return render(request, 'inventory/dashboard.html', context)
-    return render(request, 'registration/login.html')
-
-
-
-# def has_any_role(user, roles):
-#     if not user.is_authenticated:
-#         return False
-#     try:
-#         return user.userprofile.role in roles
-#     except UserProfile.DoesNotExist:
-#         return False
-
-def has_any_role(user, roles):
-    if not user.is_authenticated:
-        return False
-
-    # Try to get the profile safely
-    profile = UserProfile.objects.filter(user=user).first()
-    if not profile:
-        return False
-
-    return profile.role in roles
+            'top_products': top_products,
+            'staff_count': staff_count,
+            'low_stock_products': low_stock_products[:5],  # Show top 5 low stock items
+        })
+        
+    elif user_profile.is_staff:
+        # Staff sees only their own data
+        staff_movements = StockMovement.objects.filter(
+            created_by=request.user
+        ).select_related('product', 'created_by')
+        
+        # Products that this staff member has worked with
+        staff_products = Product.objects.filter(
+            movements__created_by=request.user
+        ).distinct()
+        
+        # Low stock products from staff's handled products
+        low_stock_products = staff_products.filter(quantity__lte=F('minimum_stock'))
+        
+        # Recent movements by this staff member only
+        recent_movements = staff_movements.order_by('-created_at')[:10]
+        
+        # Top products by this staff member's movement count
+        top_products = staff_products.annotate(
+            movement_count=Count('movements', filter=Q(movements__created_by=request.user))
+        ).order_by('-movement_count')[:5]
+        
+        # Staff-specific metrics
+        today_movements = staff_movements.filter(
+            created_at__date=timezone.now().date()
+        ).count()
+        
+        this_week_movements = staff_movements.filter(
+            created_at__gte=timezone.now() - timezone.timedelta(days=7)
+        ).count()
+        
+        
+        total_categories = Category.objects.count()
+        
+        context.update({
+            'low_stock_count': low_stock_products.count(),
+            'total_products': staff_products.count(),
+            'recent_movements': recent_movements,
+            'total_movements': staff_movements.count(),
+            'top_products': top_products,
+            'today_movements': today_movements,
+            'this_week_movements': this_week_movements,
+            'low_stock_products': low_stock_products[:5],
+            'total_categories': total_categories,
+        })
+    
+    return render(request, 'inventory/dashboard.html', context)
 
 
 @never_cache
 @login_required
 def product_list(request):
-    products = Product.objects.all().order_by('-id')
-    return render(request, 'inventory/product_list.html', {'products': products})
+    if not request.user.is_authenticated:
+        return render(request, 'registration/login.html')
+    user_profile = request.user.profile.first()
+    
+    context = {
+        'user_profile': user_profile,
+    }
+    if user_profile.is_manager:
+       products = Product.objects.all().select_related('category', 'created_by').order_by('-id')
+       context.update({
+           'products': products,
+       })
+    elif user_profile.is_staff:
+        products = Product.objects.filter(movements__created_by=request.user).distinct().all().order_by('-created_at')
+        context.update({
+            'products': products,
+        })
+    return render(request, 'inventory/product_list.html', context)
 
 
 @never_cache
@@ -186,6 +254,7 @@ def add_product(request):
         price = request.POST.get('price')
         quantity = int(request.POST.get('quantity'))
         minimum_stock = request.POST.get('minimum_stock')
+        created_by = request.user
         
         category = get_object_or_404(Category, pk=category_id)
         
@@ -195,7 +264,8 @@ def add_product(request):
             category=category,
             price=price,
             quantity=0,
-            minimum_stock=minimum_stock
+            minimum_stock=minimum_stock,
+            created_by=request.user,
         )
         
         # initial stock movement
@@ -205,7 +275,7 @@ def add_product(request):
                 quantity=quantity,
                 movement_type='in',
                 note='initial stock',
-                created_by=request.user
+                created_by=request.user,
             )
         messages.success(request, f'Product "{product.name}" has been created successfully.')
         return redirect('product_detail', pk=product.pk)
@@ -256,8 +326,12 @@ def delete_product(request, pk):
 @never_cache
 @login_required
 def category_list(request):
+    user_profile = request.user.profile.first()
     categories = Category.objects.all().order_by('-id')
-    return render(request, 'inventory/category_list.html', {'categories': categories})
+    return render(request, 'inventory/category_list.html', {
+        'categories': categories,
+        'user_profile': user_profile,
+        })
 
 @never_cache
 @csrf_protect
@@ -294,21 +368,27 @@ def delete_category(request, pk):
     
     #check if  category has products
     if category.products.exists():
-        messages.error(request, f"Cannot delete category '{category.name}' because it contains products. please move or delete thes products first.")
+        messages.warning(request, f"Cannot delete category '{category.name}' because it contains products. please delete the products first.")
         return redirect('category_list')
     
     if request.method == 'POST':
         category_name = category.name
         category.delete()
         messages.success(request, f"Category '{category_name}' was deleted successfully")
+        return redirect('category_list')
         
     return render(request, 'inventory/category_confirm_delete.html', {'category': category})
 
+@never_cache
 @login_required
 def all_movements(request):
+    user_profile = request.user.profile.first()
     """View to display all stock movements with filtering options"""
     movements = StockMovement.objects.select_related('product', 'created_by', 'product__category').order_by('-created_at')
     
+    if user_profile.is_staff and not user_profile.is_manager:
+        movements = movements.filter(created_by=request.user)
+        
     #filter options
     product_filter = request.GET.get('product')
     category_filter = request.GET.get('category')
@@ -325,7 +405,7 @@ def all_movements(request):
         movements = movements.filter(movement_type=type_filter)
     if date_from:
         try:
-            date_from = datetime.striptime(date_from, '%Y-%m-%d').date()
+            date_from = datetime.strptime(date_from, '%Y-%m-%d').date()
             movements = movements.filter(created_at__date__gte=date_from)
         except ValueError:
             pass
@@ -465,141 +545,276 @@ def export_products_csv(request):
     include_history = request.GET.get('include_history') == 'on'
     selected_products = request.GET.getlist('products')
     
-    # If no products selected, use all
-    if not selected_products:
-        products = Product.objects.all()
-    else:
-        products = Product.objects.filter(id__in=selected_products)
-    
     # Create CSV response
     response = HttpResponse(content_type='text/csv')
     timestamp = datetime.now().strftime("%Y%m%d_%H%M")
     filename = f"inventory_report_{timestamp}.csv"
     response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    user_profile = request.user.profile.first()
     
     writer = csv.writer(response)
     
     if include_history:
-        # Export with full history
-        writer.writerow(['Product', 'Category', 'Current Stock', 'Minimum Stock', 
+        if user_profile.is_manager:
+            # If no products selected, use all
+            if not selected_products:
+                products = Product.objects.all()
+            else:
+                products = Product.objects.filter(id__in=selected_products)
+            # Export with full history
+            writer.writerow(['Product', 'Category', 'Current Stock', 'Minimum Stock', 
                          'Movement Date', 'Movement Type', 'Quantity', 'User', 'Note'])
         
-        for product in products:
-            movements = StockMovement.objects.filter(product=product).order_by('created_at')
-            
-            if movements.exists():
-                for movement in movements:
+            products = Product.objects.all()
+            for product in products:
+                movements = StockMovement.objects.filter(product=product).order_by('created_at')
+                
+                if movements.exists():
+                    for movement in movements:
+                        writer.writerow([
+                            product.name,
+                            product.category.name,
+                            product.quantity,
+                            product.minimum_stock,
+                            movement.created_at.strftime('%Y-%m-%d %H:%M'),
+                            'Stock In' if movement.movement_type == 'in' else 'Stock Out',
+                            movement.quantity,
+                            movement.created_by.username,
+                            movement.note or ""
+                        ])
+                else:
+                    # Include product even if no movements
                     writer.writerow([
                         product.name,
                         product.category.name,
                         product.quantity,
                         product.minimum_stock,
-                        movement.created_at.strftime('%Y-%m-%d %H:%M'),
-                        'Stock In' if movement.movement_type == 'in' else 'Stock Out',
-                        movement.quantity,
-                        movement.created_by.username,
-                        movement.note or ""
+                        "", "", "", "", ""
                     ])
+        elif user_profile.is_staff:
+            products = Product.objects.filter(movements__created_by=request.user).distinct().order_by('-created_at')
+            # If no products selected, use all
+            if not selected_products:
+                products = products
             else:
-                # Include product even if no movements
+                products = Product.objects.filter(id__in=selected_products, movements__created_by=request.user).distinct().order_by('-created_at')
+            # Export with full history
+            writer.writerow(['Product', 'Category', 'Current Stock', 'Minimum Stock', 
+                         'Movement Date', 'Movement Type', 'Quantity', 'User', 'Note'])
+            for product in products:
+                movements = StockMovement.objects.filter(product=product).order_by('-created_at')
+                
+                if movements.exists():
+                    for movement in movements:
+                        writer.writerow([
+                            product.name,
+                            product.category.name,
+                            product.quantity,
+                            product.minimum_stock,
+                            movement.created_at.strftime('%Y-%m-%d %H:%M'),
+                            'Stock In' if movement.movement_type == 'in' else 'Stock Out',
+                            movement.quantity,
+                            movement.created_by.username,
+                            movement.note or ""
+                        ])
+                else:
+                    # Include product even if no movements
+                    writer.writerow([
+                        product.name,
+                        product.category.name,
+                        product.quantity,
+                        product.minimum_stock,
+                        "", "", "", "", ""
+                    ])
+    else:
+        if user_profile.is_manager:
+            products = Product.objects.all().order_by('-created_at')
+            # Simple product list without history
+            writer.writerow(['Product', 'Category', 'Current Stock', 'User', 'Minimum Stock', 'Low Stock'])
+            
+            for product in products:
                 writer.writerow([
                     product.name,
                     product.category.name,
                     product.quantity,
+                    product.created_by,
                     product.minimum_stock,
-                    "", "", "", "", ""
+                    'Yes' if product.is_low_stock else 'No'
                 ])
-    else:
-        # Simple product list without history
-        writer.writerow(['Product', 'Category', 'Current Stock', 'Minimum Stock', 'Low Stock'])
-        
-        for product in products:
-            writer.writerow([
-                product.name,
-                product.category.name,
-                product.quantity,
-                product.minimum_stock,
-                'Yes' if product.is_low_stock else 'No'
-            ])
+        elif user_profile.is_staff:
+            products = Product.objects.filter(movements__created_by=request.user).distinct().order_by('-created_at')
+            # Simple product list without history
+            writer.writerow(['Product', 'Category', 'Current Stock', 'User', 'Minimum Stock', 'Low Stock'])
+            
+            for product in products:
+                writer.writerow([
+                    product.name,
+                    product.category.name,
+                    product.quantity,
+                    product.created_by,
+                    product.minimum_stock,
+                    'Yes' if product.is_low_stock else 'No'
+                ])
     
     return response
 
 @login_required
 def export_options(request):
     """View to display export options before generating the CSV"""
-    products = Product.objects.all().order_by('name')
-    
+    user_profile = request.user.profile.first()
     context = {
-        'products': products,
+        'user_profile': user_profile
     }
+    if user_profile.is_manager:
+        products = Product.objects.all().order_by('name')
+        
+        context.update({
+            'products': products,
+        })
+    elif user_profile.is_staff:
+        products = Product.objects.filter(movements__created_by=request.user).distinct().order_by('name')
+        context.update({
+            'products': products,
+        })
     return render(request, 'inventory/export_options.html', context)
         
 @never_cache
 @login_required
 def low_stock_report(request):
-    all_products = Product.objects.all()
-    
-    show_all = request.GET.get('show_all', 'false') == 'true'
-    
-    product_name = request.GET.get('product_name', '')
-    category_filter = request.GET.get('category', '')
-    sort_order = request.GET.get('sort', 'name')
-    stock_filter = request.GET.get('stock', 'all')
-    
-    if show_all:
-        products_to_display = all_products
-    else:
-        products_to_display = all_products.filter(quantity__lte=F('minimum_stock'))
-    
-    if product_name:
-        products_to_display = products_to_display.filter(name__icontains=product_name)
-    
-        products_to_display = products_to_display.filter(category_id=category_filter)
-    
-    if stock_filter == 'zero':
-        products_to_display = products_to_display.filter(quantity=0)
-    elif stock_filter == 'low':
-        products_to_display = products_to_display.filter(quantity__gt=0, quantity__lte=F('minimum_stock'))
-    elif stock_filter == 'normal':
-        products_to_display = products_to_display.filter(quantity__gt=F('minimum_stock'))
-    
-    if sort_order == 'quantity':
-        products_to_display = products_to_display.order_by('quantity')
-    elif sort_order == 'percent':
-        
-        if hasattr(products_to_display, 'order_by'):
-            products_list = list(products_to_display)
-        else:
-            products_list = products_to_display
-            
-        products_to_display = sorted(
-            products_list,
-            key=lambda p: (p.quantity / p.minimum_stock if p.minimum_stock > 0 else float('inf'))
-        )
-    else:  
-        if hasattr(products_to_display, 'order_by'):
-            products_to_display = products_to_display.order_by('name')
-        else:
-            products_to_display = sorted(products_to_display, key=lambda p: p.name)
-    
-    categories = Category.objects.all()
-    
-    product_movements = {}
-    
-    for product in products_to_display:
-        movements = StockMovement.objects.filter(product=product).order_by('-created_at')[:10]
-        product_movements[product.id] = movements
-    
+    user_profile = request.user.profile.first()
     context = {
-        'products': products_to_display,
-        'product_movements': product_movements,
-        'categories': categories,
-        'title': 'All Products' if show_all else 'Low Stock Report',
-        'count': len(products_to_display),
-        'show_all': show_all,
-        'all_products_count': all_products.count(),
-        'low_stock_count': all_products.filter(quantity__lte=F('minimum_stock')).count()
+        'user_profile': user_profile,
     }
+    if user_profile.is_manager:
+        all_products = Product.objects.all()
+        
+        show_all = request.GET.get('show_all', 'false') == 'true'
+        
+        product_name = request.GET.get('product_name', '')
+        category_filter = request.GET.get('category', '')
+        sort_order = request.GET.get('sort', 'name')
+        stock_filter = request.GET.get('stock', 'all')
+        
+        if show_all:
+            products_to_display = all_products
+        else:
+            products_to_display = all_products.filter(quantity__lte=F('minimum_stock'))
+        
+        if product_name:
+            products_to_display = products_to_display.filter(name__icontains=product_name)
+        
+            products_to_display = products_to_display.filter(category_id=category_filter)
+        
+        if stock_filter == 'zero':
+            products_to_display = products_to_display.filter(quantity=0)
+        elif stock_filter == 'low':
+            products_to_display = products_to_display.filter(quantity__gt=0, quantity__lte=F('minimum_stock'))
+        elif stock_filter == 'normal':
+            products_to_display = products_to_display.filter(quantity__gt=F('minimum_stock'))
+        
+        if sort_order == 'quantity':
+            products_to_display = products_to_display.order_by('quantity')
+        elif sort_order == 'percent':
+            
+            if hasattr(products_to_display, 'order_by'):
+                products_list = list(products_to_display)
+            else:
+                products_list = products_to_display
+                
+            products_to_display = sorted(
+                products_list,
+                key=lambda p: (p.quantity / p.minimum_stock if p.minimum_stock > 0 else float('inf'))
+            )
+        else:  
+            if hasattr(products_to_display, 'order_by'):
+                products_to_display = products_to_display.order_by('name')
+            else:
+                products_to_display = sorted(products_to_display, key=lambda p: p.name)
+        
+        categories = Category.objects.all()
+        
+        product_movements = {}
+        
+        for product in products_to_display:
+            movements = StockMovement.objects.filter(product=product).order_by('-created_at')[:10]
+            product_movements[product.id] = movements
+        
+        context.update({
+            'products': products_to_display,
+            'product_movements': product_movements,
+            'categories': categories,
+            'title': 'All Products' if show_all else 'Low Stock Report',
+            'count': len(products_to_display),
+            'show_all': show_all,
+            'all_products_count': all_products.count(),
+            'low_stock_count': all_products.filter(quantity__lte=F('minimum_stock')).count()
+        })
+    elif user_profile.is_staff:
+        all_products = Product.objects.filter(
+            movements__created_by=request.user
+        ).distinct()
+        
+        show_all = request.GET.get('show_all', 'false') == 'true'
+        
+        product_name = request.GET.get('product_name', '')
+        category_filter = request.GET.get('category', '')
+        sort_order = request.GET.get('sort', 'name')
+        stock_filter = request.GET.get('stock', 'all')
+        
+        if show_all:
+            products_to_display = all_products
+        else:
+            products_to_display = all_products.filter(quantity__lte=F('minimum_stock'))
+        
+        if product_name:
+            products_to_display = products_to_display.filter(name__icontains=product_name)
+        
+            products_to_display = products_to_display.filter(category_id=category_filter)
+        
+        if stock_filter == 'zero':
+            products_to_display = products_to_display.filter(quantity=0)
+        elif stock_filter == 'low':
+            products_to_display = products_to_display.filter(quantity__gt=0, quantity__lte=F('minimum_stock'))
+        elif stock_filter == 'normal':
+            products_to_display = products_to_display.filter(quantity__gt=F('minimum_stock'))
+        
+        if sort_order == 'quantity':
+            products_to_display = products_to_display.order_by('quantity')
+        elif sort_order == 'percent':
+            
+            if hasattr(products_to_display, 'order_by'):
+                products_list = list(products_to_display)
+            else:
+                products_list = products_to_display
+                
+            products_to_display = sorted(
+                products_list,
+                key=lambda p: (p.quantity / p.minimum_stock if p.minimum_stock > 0 else float('inf'))
+            )
+        else:  
+            if hasattr(products_to_display, 'order_by'):
+                products_to_display = products_to_display.order_by('name')
+            else:
+                products_to_display = sorted(products_to_display, key=lambda p: p.name)
+        
+        categories = Category.objects.filter(products__created_by=request.user)
+        
+        product_movements = {}
+        
+        for product in products_to_display:
+            movements = StockMovement.objects.filter(product=product, created_by=request.user).order_by('-created_at')[:10]
+            product_movements[product.id] = movements
+        
+        context.update({
+            'products': products_to_display,
+            'product_movements': product_movements,
+            'categories': categories,
+            'title': 'All Products' if show_all else 'Low Stock Report',
+            'count': len(products_to_display),
+            'show_all': show_all,
+            'all_products_count': all_products.count(),
+            'low_stock_count': all_products.filter(quantity__lte=F('minimum_stock')).count()
+        })
     return render(request, 'inventory/low_stock_report.html', context)
 
 
@@ -609,41 +824,72 @@ def low_stock_report(request):
 @never_cache
 @login_required
 def category_stats(request):
-    from django.db.models import Sum, Count
-    from django.http import JsonResponse
+    user_profile = request.user.profile.first()
     
-    # Get total products by category
-    categories = Category.objects.annotate(product_count=Count('products'))
-    
-    # Prepare data for chart
-    labels = [category.name for category in categories]
-    values = [category.product_count for category in categories]
-    
-    return JsonResponse({
-        'labels': labels,
-        'values': values
-    })
+    if user_profile.is_manager:
+        # Get total products by category
+        categories = Category.objects.annotate(product_count=Count('products'))
+        
+        # Prepare data for chart
+        labels = [category.name for category in categories]
+        values = [category.product_count for category in categories]
+        
+        return JsonResponse({
+            'labels': labels,
+            'values': values
+        })
+    if user_profile.is_staff:
+        # Get total products by category
+        categories = Category.objects.annotate(product_count=Count('products', filter=Q(products__created_by=request.user)))
+        
+        # Prepare data for chart
+        labels = [category.name for category in categories]
+        values = [category.product_count for category in categories]
+        
+        return JsonResponse({
+            'labels': labels,
+            'values': values
+        })
     
 @never_cache
 @login_required
 def stock_status_stats(request):
-    """API view that returns stock status statistics for charts"""
-    # Count products by stock status
-    total_products = Product.objects.count()
-    out_of_stock = Product.objects.filter(quantity=0).count()
-    low_stock = Product.objects.filter(quantity__gt=0, quantity__lte=F('minimum_stock')).count()
-    normal_stock = total_products - out_of_stock - low_stock
+    user_profile = request.user.profile.first()
     
-    return JsonResponse({
-        'out_of_stock': out_of_stock,
-        'low_stock': low_stock,
-        'normal_stock': normal_stock,
-        'total': total_products
-    })
+    """API view that returns stock status statistics for charts"""
+    if user_profile.is_manager:
+        # Count products by stock status
+        total_products = Product.objects.count()
+        out_of_stock = Product.objects.filter(quantity=0).count()
+        low_stock = Product.objects.filter(quantity__gt=0, quantity__lte=F('minimum_stock')).count()
+        normal_stock = total_products - out_of_stock - low_stock
+        
+        return JsonResponse({
+            'out_of_stock': out_of_stock,
+            'low_stock': low_stock,
+            'normal_stock': normal_stock,
+            'total': total_products
+        })
+    if user_profile.is_staff:
+        # Count products by stock status
+        product = Product.objects.filter(created_by=request.user)
+        total_products = product.count()
+        out_of_stock = product.filter(quantity=0).count()
+        low_stock = product.filter(quantity__gt=0, quantity__lte=F('minimum_stock')).count()
+        normal_stock = total_products - out_of_stock - low_stock
+        
+        return JsonResponse({
+            'out_of_stock': out_of_stock,
+            'low_stock': low_stock,
+            'normal_stock': normal_stock,
+            'total': total_products
+        })
  
 @never_cache   
 @login_required
 def stock_timeline_stats(request):
+    user_profile = request.user.profile.first()
+    
     """API view that returns stock movement timeline for charts"""
     # Get dates for the last 30 days
     end_date = timezone.now().date()
@@ -653,7 +899,13 @@ def stock_timeline_stats(request):
     dates = [(start_date + timedelta(days=i)).strftime('%Y-%m-%d') for i in range(30)]
     
     # Get top 5 products by movement count
-    top_products = Product.objects.annotate(
+    product_queryset = Product.objects.all()
+    
+    if user_profile.is_staff and not user_profile.is_manager:
+        #user see
+        product_queryset = product_queryset.filter(created_by=request.user)
+        
+    top_products = product_queryset.annotate(
         movement_count=Count('movements')
     ).order_by('-movement_count')[:5]
     
@@ -663,11 +915,16 @@ def stock_timeline_stats(request):
     
     for i, product in enumerate(top_products):
         # Get all movements for this product in date range
-        movements = StockMovement.objects.filter(
+        movement_queryset = StockMovement.objects.filter(
             product=product,
             created_at__date__gte=start_date,
             created_at__date__lte=end_date
-        ).order_by('created_at')
+        )
+        
+        if user_profile.is_staff and not user_profile.is_manager:
+            #staff see
+            movement_queryset = movement_queryset.filter(created_by=request.user)
+        movements = movement_queryset.order_by('created_at')
         
         # Calculate running total of stock for each day
         stock_by_date = {}
@@ -683,7 +940,7 @@ def stock_timeline_stats(request):
             movement_date = movement.created_at.date().strftime('%Y-%m-%d')
             stock_by_date[movement_date] = current_stock
         
-        # Fill in all dates
+        # Fill in data for all 30 days
         data = []
         for date in dates:
             # Find the most recent known stock level for this date
@@ -691,12 +948,7 @@ def stock_timeline_stats(request):
                 data.append(stock_by_date[date])
             else:
                 # Find closest previous date
-                closest_date = None
-                for d in reversed(dates[:dates.index(date)]):
-                    if d in stock_by_date:
-                        closest_date = d
-                        break
-                
+                closest_date = next((d for d in reversed(dates[:dates.index(date)]) if d in stock_by_date), None)
                 if closest_date:
                     data.append(stock_by_date[closest_date])
                 else:
@@ -717,155 +969,3 @@ def stock_timeline_stats(request):
         'dates': dates,
         'datasets': datasets
     })
-    
-@never_cache
-@login_required
-def stock_projection_stats(request):
-    """API view that returns projected stock changes for the next 14 days"""
-    # Get all products with at least one movement
-    products_with_movements = Product.objects.annotate(
-        movement_count=Count('movements')
-    ).filter(movement_count__gt=0).order_by('-movement_count')[:5]
-    
-    # Generate dates for the next 14 days
-    start_date = timezone.now().date()
-    dates = [(start_date + timedelta(days=i)).strftime('%b %d') for i in range(14)]
-    
-    # Prepare datasets for each product
-    datasets = []
-    colors = ['#4e73df', '#1cc88a', '#36b9cc', '#f6c23e', '#e74a3b']
-    
-    for i, product in enumerate(products_with_movements):
-        # Calculate average daily consumption rate
-        out_movements = StockMovement.objects.filter(
-            product=product,
-            movement_type='out'
-        )
-        
-        if out_movements.exists():
-            # Get the total quantity removed and the date range
-            total_out = out_movements.aggregate(Sum('quantity'))['quantity__sum'] or 0
-            
-            # If we have out movements, estimate daily consumption
-            if total_out > 0:
-                # Use 1 unit per day as minimum rate if we have at least one movement
-                daily_consumption = max(1, total_out // 30)  # Assume last 30 days
-            else:
-                daily_consumption = 0
-        else:
-            # No out movements recorded, assume minimal usage
-            daily_consumption = 0
-        
-        # Project stock levels for next 14 days
-        current_stock = product.quantity
-        projected_stocks = []
-        
-        for _ in range(14):
-            # Decrease by daily consumption, but not below 0
-            current_stock = max(0, current_stock - daily_consumption)
-            projected_stocks.append(current_stock)
-        
-        datasets.append({
-            'label': product.name,
-            'data': projected_stocks,
-            'borderColor': colors[i],
-            'backgroundColor': 'transparent',
-            'borderDash': [5, 5] if daily_consumption > 0 else [],  # Dashed line for projections
-            'pointRadius': 3,
-            'tension': 0.1
-        })
-        
-        # Add a horizontal line for minimum stock level
-        datasets.append({
-            'label': f"{product.name} Min Level",
-            'data': [product.minimum_stock] * 14,
-            'borderColor': colors[i] + '80',  # Semi-transparent
-            'borderDash': [2, 2],
-            'pointRadius': 0,
-            'fill': FALSE,
-            'tension': 0
-        })
-    
-    return JsonResponse({
-        'dates': dates,
-        'datasets': datasets
-    })
-    
-@never_cache
-@login_required
-def product_activity_stats(request):
-    """API view that returns product activity statistics for charts"""
-    # Get top 10 products by movement count
-    top_products = Product.objects.annotate(
-        movement_count=Count('movements'),
-        in_count=Count('movements', filter=Q(movements__movement_type='in')),
-        out_count=Count('movements', filter=Q(movements__movement_type='out'))
-    ).order_by('-movement_count')[:10]
-    
-    product_names = [product.name for product in top_products]
-    in_counts = [product.in_count for product in top_products]
-    out_counts = [product.out_count for product in top_products]
-    
-    return JsonResponse({
-        'product_names': product_names,
-        'in_counts': in_counts,
-        'out_counts': out_counts
-    })
-    
-@never_cache
-@login_required
-def all_movements(request):
-    """View to display all stock movements with filtering options"""
-    movements = StockMovement.objects.select_related('product', 'created_by', 'product__category').order_by('-created_at')
-    
-    # Filtering options
-    product_filter = request.GET.get('product')
-    category_filter = request.GET.get('category')
-    type_filter = request.GET.get('type')
-    date_from = request.GET.get('date_from')
-    date_to = request.GET.get('date_to')
-    
-    # Apply filters
-    if product_filter:
-        movements = movements.filter(product_id=product_filter)
-    
-    if category_filter:
-        movements = movements.filter(product__category_id=category_filter)
-    
-    if type_filter in ['in', 'out']:
-        movements = movements.filter(movement_type=type_filter)
-    
-    if date_from:
-        try:
-            date_from = datetime.strptime(date_from, '%Y-%m-%d').date()
-            movements = movements.filter(created_at__date__gte=date_from)
-        except ValueError:
-            pass
-    
-    if date_to:
-        try:
-            date_to = datetime.strptime(date_to, '%Y-%m-%d').date()
-            movements = movements.filter(created_at__date__lte=date_to)
-        except ValueError:
-            pass
-    
-    # Get all products and categories for filter dropdowns
-    products = Product.objects.all().order_by('name')
-    categories = Category.objects.all().order_by('name')
-    
-    # Pagination
-    paginator = Paginator(movements, 25)  # 25 movements per page
-    page_number = request.GET.get('page')
-    page_obj = paginator.get_page(page_number)
-    
-    context = {
-        'movements': page_obj,
-        'products': products,
-        'categories': categories,
-        'product_filter': product_filter,
-        'category_filter': category_filter,
-        'type_filter': type_filter,
-        'date_from': date_from,
-        'date_to': date_to,
-    }
-    return render(request, 'inventory/all_movements.html', context)

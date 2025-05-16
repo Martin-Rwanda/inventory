@@ -9,6 +9,7 @@
     <a href="{% url 'add_product' %}" class="btn btn-primary">
         <i class="fas fa-plus"></i> Add New Product
     </a>
+    
 </div>
 
 <div class="card">
@@ -26,7 +27,10 @@
                         <th>Name</th>
                         <th>Category</th>
                         <th>Price</th>
-                        <th>Quantity</th>
+                        <th>Quantity</th> 
+                        {% if user_profile.is_manager%}
+                        <th>Staff</th>
+                        {% endif %}
                         <th>Status</th>
                         <th>Actions</th>
                     </tr>
@@ -38,6 +42,9 @@
                         <td>{{ product.category.name }}</td>
                         <td>${{ product.price }}</td>
                         <td>{{ product.quantity }}</td>
+                        {% if user_profile.is_manager%}
+                        <td>{{ product.created_by }}</td>
+                        {% endif %}
                         <td>
                             {% if product.is_zero %}
                             <span class="badge bg-danger">Out of Stock</span>

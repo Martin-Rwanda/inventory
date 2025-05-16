@@ -29,9 +29,5 @@ urlpatterns = [
     #apis
     path('api/category-stats/', views.category_stats, name='category_stats'),
     path('api/stock-status-stats/', views.stock_status_stats, name='stock_status_stats'),
-    path('api/stock-timeline-stats/', views.stock_timeline_stats, name='stock_timeline_stats'),
-    path('api/stock-projection-stats/', views.stock_projection_stats, name='stock_projection_stats'),
-    path('api/product-activity-stats/', views.product_activity_stats, name='product_activity_stats'),
-    
-    
+    path('api/stock-timeline-stats/', views.stock_timeline_stats, name='stock_timeline_stats'), 
 ]

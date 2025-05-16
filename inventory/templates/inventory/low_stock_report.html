@@ -366,7 +366,6 @@
                         <option value="all" {% if request.GET.stock == 'all' %}selected{% endif %}>All Products</option>
                         <option value="zero" {% if request.GET.stock == 'zero' %}selected{% endif %}>Out of Stock Only</option>
                         <option value="low" {% if request.GET.stock == 'low' %}selected{% endif %}>Low Stock Only</option>
-                        <option value="normal" {% if request.GET.stock == 'normal' %}selected{% endif %}>Normal Stock Only</option>
                     </select>
                 </div>
             </div>
@@ -412,10 +411,12 @@
                         <div class="card-header d-flex justify-content-between align-items-center">
                             <h5 class="mb-0">{{ product.name }}</h5>
                             <div>
-                                {% if product.quantity == 0 %}
+                                {% if product.is_zero %}
                                     <span class="badge bg-danger">Out of Stock</span>
-                                {% else %}
+                                {% elif product.is_low_stock %}
                                     <span class="badge bg-warning">Low Stock</span>
+                                {% else %}
+                                    <span class="badge bg-success">In Stock</span>
                                 {% endif %}
                             </div>
                         </div>
@@ -507,33 +508,12 @@
             </div>
         {% else %}
             <div class="alert alert-info">
-                <i class="fas fa-info-circle"></i> There are currently no products with low stock levels.
-                <ul class="mt-2">
-                    <li>Products appear here when their quantity falls below or equals their minimum stock level.</li>
-                    <li>You can set the minimum stock level for each product when adding or editing products.</li>
-                </ul>
+                <i class="fas fa-info-circle"></i> There are currently no products with that stock levels.
             </div>
         {% endif %}
     </div>
 </div>
 
-{% if count == 0 %}
-<div class="card">
-    <div class="card-header">
-        <h5 class="mb-0">Testing Low Stock Detection</h5>
-    </div>
-    <div class="card-body">
-        <p>To test the low stock reporting feature:</p>
-        <ol>
-            <li>Edit a product and set its minimum stock level higher than its current quantity</li>
-            <li>Or use the "Remove Stock" feature to reduce a product's quantity below its minimum level</li>
-        </ol>
-        <a href="{% url 'product_list' %}" class="btn btn-primary">
-            <i class="fas fa-boxes"></i> Go to Products
-        </a>
-    </div>
-</div>
-{% endif %}
 {% endblock %}
 
 {% block extra_js %}

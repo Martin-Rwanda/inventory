@@ -7,10 +7,25 @@
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h1>Categories</h1>
+    {% if user_profile.is_manager%}
     <a href="{% url 'add_category' %}" class="btn btn-primary">
         <i class="fas fa-plus"></i> Add New Category
     </a>
+    {% endif %}
+    <a href="{% url 'dashboard' %}" class="btn btn-secondary">
+            <i class="fas fa-arrow-left"></i> Back to Dashboard
+    </a>
 </div>
+{% if user_profile.is_manager%}
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-{{ message.level_tag }} alert-dismissible fade show" role="alert">
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+        {% endfor %}
+    {% endif %}
+{% endif %}
 
 <div class="card">
     <div class="card-body">
@@ -21,7 +36,9 @@
                         <th>Name</th>
                         <th>Description</th>
                         <th>Products Count</th>
+                        {% if user_profile.is_manager%}
                         <th>Actions</th>
+                        {% endif %}
                     </tr>
                 </thead>
                 <tbody>
@@ -35,15 +52,16 @@
                         <td>{{ category.description|truncatechars:100|default:"N/A" }}</td>
                         <td>{{ category.products.count }}</td>
                         <td>
-                            <a href="{% url 'category_detail' category.pk %}" class="btn btn-sm btn-info">
-                                <i class="fas fa-eye"></i>
-                            </a>
-                            
-                            <a href="{% url 'delete_category' category.pk %}" class="btn btn-sm btn-danger" 
-                               onclick="confirmDelete(event, '{{ category.name }}')">
-                                <i class="fas fa-trash"></i>
-                            </a>
-                            
+                            {% if user_profile.is_manager%}
+                                <a href="{% url 'category_detail' category.pk %}" class="btn btn-sm btn-info">
+                                    <i class="fas fa-eye"></i>
+                                </a>
+                                
+                                <a href="{% url 'delete_category' category.pk %}" class="btn btn-sm btn-danger" 
+                                onclick="confirmDelete(event, '{{ category.name }}')">
+                                    <i class="fas fa-trash"></i>
+                                </a>
+                                {% endif %}
                         </td>
                     </tr>
                     {% empty %}

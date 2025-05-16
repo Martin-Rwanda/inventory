@@ -4,7 +4,11 @@
 {% block title %}Dashboard{% endblock %}
 
 {% block content %}
-<h1 class="mb-4">Dashboard</h1>
+<h1 class="mb-4 bg-dark bg-opacity-25 p-2 d-inline-block rounded">Dashboard
+    {% if user_profile %}
+        <span class="badge bg-dark">{{ user_profile.get_role_display }}</span>
+    {% endif %}
+</h1>
 
 <!-- Summary Cards Row -->
 <div class="row">
@@ -184,8 +188,12 @@
                                 <td>{{ product.category.name }}</td>
                                 <td>
                                     {{ product.quantity }}
-                                    {% if product.is_low_stock %}
+                                    {% if product.is_zero %}
+                                    <span class="badge bg-danger">Out</span>
+                                    {% elif product.is_low_stock %}
                                     <span class="badge bg-warning">Low</span>
+                                    {% else %}
+                                    <span class="badge bg-success">In S</span>
                                     {% endif %}
                                 </td>
                                 <td>{{ product.movement_count }}</td>
@@ -310,156 +318,6 @@
                 console.error('Error loading chart data:', error);
                 document.getElementById('stockTimelineChart').innerHTML = 'Error loading chart data';
             });
-    });
-
-    // Stock Projection Chart
-const ctxProjection = document.getElementById('stockProjectionChart').getContext('2d');
-fetch('{% url "stock_projection_stats" %}')
-    .then(response => response.json())
-    .then(data => {
-        new Chart(ctxProjection, {
-            type: 'line',
-            data: {
-                labels: data.dates,
-                datasets: data.datasets
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                scales: {
-                    y: {
-                        beginAtZero: true,
-                        title: {
-                            display: true,
-                            text: 'Projected Quantity'
-                        }
-                    },
-                    x: {
-                        title: {
-                            display: true,
-                            text: 'Date'
-                        }
-                    }
-                },
-                plugins: {
-                    tooltip: {
-                        callbacks: {
-                            title: function(tooltipItems) {
-                                return 'Projected for: ' + tooltipItems[0].label;
-                            }
-                        }
-                    },
-                    legend: {
-                        onClick: function(e, legendItem, legend) {
-                            // Custom legend click handler
-                            const index = legendItem.datasetIndex;
-                            const ci = legend.chart;
-                            
-                            // If this is a minimum level line, also toggle the main line and vice versa
-                            if (legendItem.text.includes('Min Level')) {
-                                // This is a min level line, find the corresponding main line
-                                const mainLabel = legendItem.text.replace(' Min Level', '');
-                                for (let i = 0; i < ci.data.datasets.length; i++) {
-                                    if (ci.data.datasets[i].label === mainLabel) {
-                                        ci.getDatasetMeta(i).hidden = !ci.getDatasetMeta(i).hidden;
-                                        break;
-                                    }
-                                }
-                            } else {
-                                // This is a main line, find the corresponding min level line
-                                const minLabel = legendItem.text + ' Min Level';
-                                for (let i = 0; i < ci.data.datasets.length; i++) {
-                                    if (ci.data.datasets[i].label === minLabel) {
-                                        ci.getDatasetMeta(i).hidden = !ci.getDatasetMeta(i).hidden;
-                                        break;
-                                    }
-                                }
-                            }
-                            
-                            // Toggle the clicked item itself
-                            ci.getDatasetMeta(index).hidden = !ci.getDatasetMeta(index).hidden;
-                            ci.update();
-                        }
-                    }
-                }
-            }
-        });
-    })
-    .catch(error => {
-        console.error('Error loading projection data:', error);
-        document.getElementById('stockProjectionChart').innerHTML = 'Error loading projection data';
-    });
-
-    // Product Activity Chart
-const ctxActivity = document.getElementById('productActivityChart').getContext('2d');
-fetch('{% url "product_activity_stats" %}')
-    .then(response => response.json())
-    .then(data => {
-        new Chart(ctxActivity, {
-            type: 'bar',
-            data: {
-                labels: data.product_names,
-                datasets: [
-                    {
-                        label: 'Stock In',
-                        data: data.in_counts,
-                        backgroundColor: '#36b9cc',
-                        borderColor: '#36b9cc',
-                        borderWidth: 1
-                    },
-                    {
-                        label: 'Stock Out',
-                        data: data.out_counts,
-                        backgroundColor: '#e74a3b',
-                        borderColor: '#e74a3b',
-                        borderWidth: 1
-                    }
-                ]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                scales: {
-                    y: {
-                        beginAtZero: true,
-                        title: {
-                            display: true,
-                            text: 'Number of Movements'
-                        }
-                    },
-                    x: {
-                        title: {
-                            display: true,
-                            text: 'Product'
-                        }
-                    }
-                },
-                plugins: {
-                    legend: {
-                        position: 'top',
-                    },
-                    tooltip: {
-                        callbacks: {
-                            title: function(tooltipItems) {
-                                return tooltipItems[0].label;
-                            },
-                            label: function(context) {
-                                let label = context.dataset.label || '';
-                                if (label) {
-                                    label += ': ';
-                                }
-                                label += context.parsed.y;
-                                return label + ' movements';
-                            }
-                        }
-                    }
-                }
-            }
-        });
-    })
-    .catch(error => {
-        console.error('Error loading activity data:', error);
-        document.getElementById('productActivityChart').innerHTML = 'Error loading activity data';
     });
 </script>
 
