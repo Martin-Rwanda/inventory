@@ -1,0 +1,58 @@
+/* Custom styles for StockTrack */
+body {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+.footer {
+    margin-top: auto;
+}
+
+/* Card styles */
+.card {
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+    margin-bottom: 1.5rem;
+}
+
+.card-header {
+    font-weight: 500;
+    background-color: #f8f9fa;
+}
+
+/* Table styles */
+.table {
+    margin-bottom: 0;
+}
+
+.table th {
+    background-color: #f8f9fa;
+}
+
+/* Dashboard stats */
+.card-title {
+    color: #6c757d;
+    font-size: 1rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05rem;
+}
+
+/* Form styles */
+.form-label {
+    font-weight: 500;
+}
+
+/* Responsive tweaks */
+@media (max-width: 767px) {
+    .btn-sm {
+        padding: 0.25rem 0.4rem;
+    }
+    
+    .d-flex {
+        flex-direction: column;
+    }
+    
+    .d-flex .btn {
+        margin-top: 0.5rem;
+    }
+}
