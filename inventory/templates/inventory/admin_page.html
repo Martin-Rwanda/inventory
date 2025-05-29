@@ -1,0 +1,155 @@
+{% extends 'inventory/base.html' %}
+{% load static %}
+
+{% block title %}Manager Page{% endblock %}
+
+{% block content %}
+
+{% if messages %}
+  {% for message in messages %}
+    <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+      {{ message }}
+      <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+  {% endfor %}
+{% endif %}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1>Users/ Staffs</h1>
+    <a href="{% url 'dashboard' %}" class="btn btn-secondary">
+            <i class="fas fa-arrow-left"></i> Back to Dash
+    </a>
+    
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <div class="input-group">
+            <input type="text" id="usersSearch" class="form-control" placeholder="Search products...">
+            <span class="input-group-text"><i class="fas fa-search"></i></span>
+        </div>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-hover" id="usersTable">
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Status</th>
+                        <th>Change Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for staff in staff_users %}
+                    <tr>
+                        <td>{{ staff.user.username }}</td>
+                        <td>
+                            {% if staff.status == 'rejected'%}
+                                <span class="badge bg-danger">{{ staff.get_status_display }}</span>
+                            {% elif staff.status == 'approved' %}
+                                <span class="badge bg-success">{{ staff.get_status_display }}</span>
+                            {% else %}
+                                <span class="badge bg-warning">{{ staff.get_status_display }}</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <button class="btn btn-sm btn-primary" 
+                                data-bs-toggle="modal" 
+                                data-bs-target="#statusModal" 
+                                data-staff-id="{{ staff.id }}" 
+                                data-username="{{ staff.user.username }}" 
+                                data-current-status="{{ staff.status }}">
+                            Change Status
+                        </button>
+                        </td>
+                        <td>
+                            <a href="#" class="btn btn-sm btn-danger">
+                                <i class="fas fa-trash"></i>
+                            </a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="6" class="text-center">No User found</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            <!-- Status Update Modal -->
+            <div class="modal fade" id="statusModal" tabindex="-1" aria-labelledby="statusModalLabel" aria-hidden="true">
+            <div class="modal-dialog">
+                <form method="post" id="statusForm">
+                {% csrf_token %}
+                <div class="modal-content">
+                    <div class="modal-header">
+                    <h5 class="modal-title" id="statusModalLabel">Update Status</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                    <p id="staffUsername"></p>
+                    <select name="status" class="form-select" id="statusSelect">
+                        <option value="approved">Approved</option>
+                        <option value="rejected">Rejected</option>
+                    </select>
+                    </div>
+                    <div class="modal-footer">
+                    <button type="submit" class="btn btn-primary">Update</button>
+                    </div>
+                </div>
+                </form>
+            </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const searchInput = document.getElementById('usersSearch');
+        const table = document.getElementById('usersTable');
+        const rows = table.getElementsByTagName('tr');
+
+        searchInput = addEventListener('keyup', function(){
+            const query = searchInput.value.toLowerCase();
+
+            for (let i = 1; i < rows.length; i++){
+                const row = rows[i];
+                const cells = row.getElementsByTagName('td');
+                let found = false;
+
+                for (let j = 0; j < cells.length - 1; j++) {
+                    const cellText = cells[j].textContent.toLowerCase();
+                    if (cellText.indexOf(query) > -1) {
+                        found = true;
+                        break
+                    }
+                }
+
+                row.style.display = found ? '' : 'none';
+            }
+        });
+    });
+
+    document.addEventListener('DOMContentLoaded', function () {
+        var statusModal = document.getElementById('statusModal');
+        statusModal.addEventListener('show.bs.modal', function (event) {
+            var button = event.relatedTarget;
+            var staffId = button.getAttribute('data-staff-id');
+            var username = button.getAttribute('data-username');
+            var currentStatus = button.getAttribute('data-current-status');
+
+            var form = document.getElementById('statusForm');
+            form.action = '/manager/update/' + staffId + '/';  // match your URL pattern
+
+            document.getElementById('staffUsername').textContent = 'Change status for: ' + username;
+            document.getElementById('statusSelect').value = currentStatus;
+        });
+    });
+</script>
+
+{% endblock %}

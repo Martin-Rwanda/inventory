@@ -8,6 +8,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.views.decorators.cache import never_cache
 from django.views.decorators.csrf import csrf_protect
+from django.views.decorators.http import require_POST
 from django.db.models import Count, Sum, F, Q
 from django.core.exceptions import ValidationError
 from django.core.paginator import Paginator
@@ -290,12 +291,14 @@ def add_product(request):
 @never_cache
 @login_required
 def product_detail(request, pk):
+    user_profile = request.user.profile.first()
     product = get_object_or_404(Product, pk=pk)
     
     movements = product.movements.all().order_by('-created_at')[:20]
     context = {
         'product': product,
         'movements': movements,
+        'user_profile': user_profile,
     }
     return render(request, 'inventory/product_detail.html', context)
 
@@ -303,6 +306,7 @@ def product_detail(request, pk):
 @csrf_protect
 @login_required
 def edit_product(request, pk):
+    user_profile = request.user.profile.first()
     product = get_object_or_404(Product, pk=pk)
     
     if request.method == 'POST':
@@ -315,7 +319,11 @@ def edit_product(request, pk):
         
         return redirect('product_detail', pk=product.pk)
     categories = Category.objects.all()
-    return render(request, 'inventory/product_form.html', {'product': product, 'categories': categories})
+    return render(request, 'inventory/product_form.html', {
+        'product': product, 
+        'categories': categories,
+        'user_profile': user_profile,
+        })
 
 @never_cache
 @csrf_protect
@@ -342,6 +350,7 @@ def category_list(request):
 @csrf_protect
 @login_required
 def add_category(request):
+    user_profile = request.user.profile.first()
     if request.method == 'POST':
         name = request.POST.get('name')
         description = request.POST.get('description')
@@ -351,7 +360,7 @@ def add_category(request):
             description=description
         )
         return redirect('category_list')
-    return render(request, 'inventory/category_form.html')
+    return render(request, 'inventory/category_form.html', {'user_profile': user_profile,})
 
 @login_required
 def category_detail(request, pk):
@@ -441,64 +450,6 @@ def all_movements(request):
     }
     return render(request, 'inventory/all_movements.html', context)
 
-@login_required
-def export_movements_csv(request):
-    """Generate CSV of filtered movements"""
-    movements = StockMovement.objects.select_related('product', 'created_by', 'product__category').order_by('-created_at')
-    
-    # Apply the same filters as in the all_movements view
-    product_filter = request.GET.get('product')
-    category_filter = request.GET.get('category')
-    type_filter = request.GET.get('type')
-    date_from = request.GET.get('date_from')
-    date_to = request.GET.get('date_to')
-    
-    if product_filter:
-        movements = movements.filter(product_id=product_filter)
-    
-    if category_filter:
-        movements = movements.filter(product__category_id=category_filter)
-    
-    if type_filter in ['in', 'out']:
-        movements = movements.filter(movement_type=type_filter)
-    
-    if date_from:
-        try:
-            date_from = datetime.strptime(date_from, '%Y-%m-%d').date()
-            movements = movements.filter(created_at__date__gte=date_from)
-        except ValueError:
-            pass
-    
-    if date_to:
-        try:
-            date_to = datetime.strptime(date_to, '%Y-%m-%d').date()
-            movements = movements.filter(created_at__date__lte=date_to)
-        except ValueError:
-            pass
-    
-    # Create CSV response
-    response = HttpResponse(content_type='text/csv')
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M")
-    filename = f"stock_movements_{timestamp}.csv"
-    response['Content-Disposition'] = f'attachment; filename="{filename}"'
-    
-    writer = csv.writer(response)
-    writer.writerow(['Date & Time', 'Product', 'Category', 'Movement Type', 'Quantity', 'User', 'Note'])
-    
-    for movement in movements:
-        writer.writerow([
-            movement.created_at.strftime('%Y-%m-%d %H:%M'),
-            movement.product.name,
-            movement.product.category.name,
-            'Stock In' if movement.movement_type == 'in' else 'Stock Out',
-            movement.quantity,
-            movement.created_by.username,
-            movement.note or ""
-        ])
-    
-    return response
-
-
 @never_cache
 @csrf_protect
 @login_required
@@ -543,6 +494,45 @@ def remove_stock(request, product_id):
         return redirect('product_detail', pk=product_id)
     
     return render(request, 'inventory/stock_form.html', {'product': product, 'movement_type': 'ut'})
+
+@never_cache
+@csrf_protect
+@login_required
+def admin_page(request):
+    staff_users = UserProfile.objects.filter(role='staff')
+    user_profile = request.user.profile.first()
+    context = {
+        'user_profile': user_profile,
+        'staff_users' :staff_users,
+    }
+    return render(request, 'inventory/admin_page.html', context)
+
+@require_POST
+@login_required
+def update_staff_status(request, staff_id):
+    staff_profile = get_object_or_404(UserProfile, id=staff_id, role='staff')
+    user_profile = request.user.profile.first()
+
+    # Ensure the staff belongs to the manager
+    if user_profile.is_staff:
+        messages.error(request, "You don't have permission to update this user.")
+        return redirect('admin_page')
+
+    new_status = request.POST.get('status')
+    if new_status in dict(UserProfile.STATUS_CHOICES):
+        staff_profile.status = new_status
+        if new_status == 'approved':
+            staff_profile.approved_at = timezone.now()
+        staff_profile.save()
+        messages.success(request, f"{staff_profile.user.username}'s status updated to {new_status}.")
+    else:
+        messages.error(request, "Invalid status selected.")
+
+    return redirect('admin_page')
+
+#______________________
+#Export and reports
+
 
 @login_required
 def export_products_csv(request):
@@ -663,6 +653,7 @@ def export_products_csv(request):
     
     return response
 
+
 @login_required
 def export_options(request):
     """View to display export options before generating the CSV"""
@@ -682,7 +673,8 @@ def export_options(request):
             'products': products,
         })
     return render(request, 'inventory/export_options.html', context)
-        
+
+
 @never_cache
 @login_required
 def low_stock_report(request):
@@ -823,9 +815,70 @@ def low_stock_report(request):
     return render(request, 'inventory/low_stock_report.html', context)
 
 
+@login_required
+def export_movements_csv(request):
+    """Generate CSV of filtered movements"""
+    movements = StockMovement.objects.select_related('product', 'created_by', 'product__category').order_by('-created_at')
+    
+    # Apply the same filters as in the all_movements view
+    product_filter = request.GET.get('product')
+    category_filter = request.GET.get('category')
+    type_filter = request.GET.get('type')
+    date_from = request.GET.get('date_from')
+    date_to = request.GET.get('date_to')
+    
+    if product_filter:
+        movements = movements.filter(product_id=product_filter)
+    
+    if category_filter:
+        movements = movements.filter(product__category_id=category_filter)
+    
+    if type_filter in ['in', 'out']:
+        movements = movements.filter(movement_type=type_filter)
+    
+    if date_from:
+        try:
+            date_from = datetime.strptime(date_from, '%Y-%m-%d').date()
+            movements = movements.filter(created_at__date__gte=date_from)
+        except ValueError:
+            pass
+    
+    if date_to:
+        try:
+            date_to = datetime.strptime(date_to, '%Y-%m-%d').date()
+            movements = movements.filter(created_at__date__lte=date_to)
+        except ValueError:
+            pass
+    
+    # Create CSV response
+    response = HttpResponse(content_type='text/csv')
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M")
+    filename = f"stock_movements_{timestamp}.csv"
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    
+    writer = csv.writer(response)
+    writer.writerow(['Date & Time', 'Product', 'Category', 'Movement Type', 'Quantity', 'User', 'Note'])
+    
+    for movement in movements:
+        writer.writerow([
+            movement.created_at.strftime('%Y-%m-%d %H:%M'),
+            movement.product.name,
+            movement.product.category.name,
+            'Stock In' if movement.movement_type == 'in' else 'Stock Out',
+            movement.quantity,
+            movement.created_by.username,
+            movement.note or ""
+        ])
+    
+    return response
 
 
+
+
+
+#_____________________
 #apis
+
 @never_cache
 @login_required
 def category_stats(request):

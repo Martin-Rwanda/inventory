@@ -10,6 +10,7 @@
         <a href="{% url 'product_list' %}" class="btn btn-secondary">
             <i class="fas fa-arrow-left"></i> Back to List
         </a>
+        {% if user_profile.is_staff %}
         <a href="{% url 'edit_product' product.pk %}" class="btn btn-warning">
             <i class="fas fa-edit"></i> Edit Product
         </a>
@@ -19,6 +20,7 @@
         <a href="{% url 'remove_stock' product.pk %}" class="btn btn-danger">
             <i class="fas fa-minus"></i> Remove Stock
         </a>
+        {% endif %}
     </div>
 </div>
 

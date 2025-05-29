@@ -18,12 +18,15 @@ urlpatterns = [
     path('categories/<int:pk>/delete/', views.delete_category, name='delete_category'),
     path('stock/add/<int:product_id>', views.add_stock, name='add_stock'),
     path('stock/remove/<int:product_id>', views.remove_stock, name='remove_stock'),
+    path('movements/',views.all_movements, name='all_movements'),
+    path('manager', views.admin_page, name='admin_page'),
+    path('manager/update/<int:staff_id>/', views.update_staff_status, name='update_staff_status'),
+    
+    #export
     path('export/products/', views.export_products_csv, name='export_products_csv'),
     path('export/options', views.export_options, name='export_options'),
     path('reports/low-stock/', views.low_stock_report, name='low_stock_report'),
     path('export/movements/',views.export_movements_csv, name='export_movements_csv'),
-    path('movements/',views.all_movements, name='all_movements'),
-    
     
     
     #apis

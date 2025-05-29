@@ -12,7 +12,7 @@ class UserProfile(models.Model):
     )
     
     STATUS_CHOICES = (
-        ('pending', 'Pending Approval'),
+        ('pending', 'Pending'),
         ('approved', 'Approved'),
         ('rejected', 'Rejected'),
     )

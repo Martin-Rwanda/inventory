@@ -52,6 +52,9 @@
                         </a>
                         <ul class="dropdown-menu dropdown-menu-end">
                             <li><a href="{% url 'logout' %}" class="dropdown-item">Logout</a></li>
+                            {% if  user_profile.is_manager %}
+                            <li><a href="{% url 'admin_page'%}" class="dropdown-item">Manager Page</a></li>
+                            {% endif %}
                         </ul>
                     </li>
                 </ul>
