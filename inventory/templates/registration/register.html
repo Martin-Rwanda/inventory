@@ -55,7 +55,6 @@
                         <div class="input-group">
                             <span class="input-group-text"><i class="fas fa-user-tag"></i></span>
                             <select name="role" id="id_role" class="form-select" required>
-                                <option value="">Select role</option>
                                 {% for role_value, role_display in role_choices %}
                                     <option value="{{ role_value }}">{{ role_value }}</option>
                                 {% endfor %}

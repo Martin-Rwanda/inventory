@@ -65,18 +65,23 @@ def register_uer(request):
                             #user profile
                             UserProfile.objects.create(user=user, role=role)
                             
-                            #log the user
-                            login(request, user)
-                            
-                            #redirect to dashboard
-                            return redirect('dashboard')
+                            #redirect to login page
+                            messages.success(request, 'Registration successfully! Please Log in')
+                            return redirect('login')
                         except Exception as e:
                             error_message = f"Error creating account: {str(e)}"
                             
                 except ValidationError as e:
                     error_message = ", ".join(e.messages)
-                    
-    role_choices = UserProfile.ROLE_CHOICES
+    role_choices = (
+        ('manager', 'Manager'),
+        ('staff', 'Staff'),
+    )               
+    # manager_exist = UserProfile.ROLE_CHOICES
+    manager_exist = UserProfile.objects.filter(role='manager').exists()
+    
+    if manager_exist:
+        role_choices = [choice for choice in role_choices if choice[0] != 'manager']
     context = {
         'role_choices': role_choices,
         'error_message': error_message
@@ -842,14 +847,15 @@ def category_stats(request):
         # Get total products by category
         categories = Category.objects.annotate(product_count=Count('products', filter=Q(products__created_by=request.user)))
         
-        # Prepare data for chart
-        labels = [category.name for category in categories]
-        values = [category.product_count for category in categories]
-        
-        return JsonResponse({
-            'labels': labels,
-            'values': values
-        })
+        if categories:
+            # Prepare data for chart
+            labels = [category.name for category in categories]
+            values = [category.product_count for category in categories]
+            
+            return JsonResponse({
+                'labels': labels,
+                'values': values
+            })
     
 @never_cache
 @login_required

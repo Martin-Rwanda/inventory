@@ -2,6 +2,7 @@ from django.db import models
 
 # Create your models here.
 from django.contrib.auth.models import User
+from django.utils import timezone
 
 
 class UserProfile(models.Model):
@@ -10,11 +11,27 @@ class UserProfile(models.Model):
         ('staff', 'Staff'),
     )
     
+    STATUS_CHOICES = (
+        ('pending', 'Pending Approval'),
+        ('approved', 'Approved'),
+        ('rejected', 'Rejected'),
+    )
+    
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='profile')
     role = models.CharField(max_length=20, choices=ROLE_CHOICES)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+    manager = models.ForeignKey(
+        'self', 
+        on_delete=models.CASCADE, 
+        null=True, 
+        blank=True, 
+        limit_choices_to={'role': 'manager'}
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    approved_at = models.DateTimeField(null=True, blank=True)
     
     def __str__(self):
-        return f"{self.user.username} - {self.role}"
+        return f"{self.user.username} - {self.role} ({self.status})"
     
     @property
     def is_manager(self):
@@ -22,6 +39,19 @@ class UserProfile(models.Model):
     @property
     def is_staff(self):
         return self.role == 'staff'
+    @property
+    def is_approved(self):
+        return self.status == 'approved'
+    
+    def approve(self, manager_profile):
+        """Approve staff member"""
+        if manager_profile.is_manager:
+            self.status = 'approved'
+            self.manager = manager_profile
+            self.approved_at = timezone.now()
+            self.save()
+            return True
+        return False
 
 class Category(models.Model):
     name = models.CharField(max_length=255, unique=True, db_index=True)
