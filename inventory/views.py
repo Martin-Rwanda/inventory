@@ -447,6 +447,7 @@ def all_movements(request):
         'type_filter': type_filter,
         'date_from': date_from,
         'date_to': date_to,
+        'user_profile': user_profile,
     }
     return render(request, 'inventory/all_movements.html', context)
 
@@ -491,6 +492,7 @@ def remove_stock(request, product_id):
                 note=note,
                 created_by=request.user
             )
+        messages.success(request, f"{quantity} units removed from {product.name}")
         return redirect('product_detail', pk=product_id)
     
     return render(request, 'inventory/stock_form.html', {'product': product, 'movement_type': 'ut'})
@@ -510,7 +512,7 @@ def admin_page(request):
 @require_POST
 @login_required
 def update_staff_status(request, staff_id):
-    staff_profile = get_object_or_404(UserProfile, id=staff_id, role='staff')
+    staff_profile = get_object_or_404(UserProfile, pk=staff_id, role='staff')
     user_profile = request.user.profile.first()
 
     # Ensure the staff belongs to the manager
@@ -529,6 +531,18 @@ def update_staff_status(request, staff_id):
         messages.error(request, "Invalid status selected.")
 
     return redirect('admin_page')
+
+@never_cache
+@csrf_protect
+@login_required
+def delete_user(request, user_id):
+    user = get_object_or_404(User, pk=user_id)
+    user_profile = request.user.profile.first()
+    
+    if user_profile.is_manager and request.method == 'POST':
+        user.delete()
+        return redirect('admin_page')
+    return render(request, 'inventory/user_confirm_delete.html', {'user': user})
 
 #______________________
 #Export and reports

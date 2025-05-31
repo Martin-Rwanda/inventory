@@ -21,6 +21,7 @@ urlpatterns = [
     path('movements/',views.all_movements, name='all_movements'),
     path('manager', views.admin_page, name='admin_page'),
     path('manager/update/<int:staff_id>/', views.update_staff_status, name='update_staff_status'),
+    path('delete-user/<int:user_id>/', views.delete_user, name='delete_user'),
     
     #export
     path('export/products/', views.export_products_csv, name='export_products_csv'),
